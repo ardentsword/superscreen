@@ -34,21 +34,15 @@ scheduling/playlists. The data model leaves room to add these later.
 
 ## 3. Architecture
 
-```
-   ┌──────────────┐   POST /api/tiles         ┌─────────────────┐
-   │ Any caller   │ ───────────────────────▶  │  PHP backend    │
-   │ (scripts,    │   DELETE /api/tiles/{id}   │  - REST API     │
-   │  other apps) │ ───────────────────────▶  │  - state on disk│
-   └──────────────┘                            └────────┬────────┘
-                          GET /api/layout (poll ~3s)    │
-   ┌───────────────────────────────────────────────────┘
-   │   ▲ 304 Not Modified (unchanged)  /  200 + layout (changed)
-   ▼   │
-   ┌─────────────────────────────────┐
-   │ Raspberry Pi                    │
-   │  Chromium (kiosk, fullscreen)   │
-   │  display page → CSS Grid render │
-   └─────────────────────────────────┘
+```mermaid
+flowchart TB
+    caller["Any caller<br/>(scripts, other apps)"]
+    backend["PHP backend<br/>REST API · state on disk"]
+    pi["Raspberry Pi<br/>Chromium kiosk (fullscreen)<br/>display page → CSS Grid render"]
+
+    caller -->|"POST /api/tiles<br/>DELETE /api/tiles/{id}"| backend
+    pi -->|"GET /api/layout (poll ~3s)"| backend
+    backend -->|"304 Not Modified / 200 + layout"| pi
 ```
 
 The Pi and the backend can run on the **same device** (the Pi serves its own API)
