@@ -43,16 +43,17 @@ restart every video and reload every iframe even when an unrelated tile changed.
 
 Instead, diff the incoming snapshot against the live DOM **keyed by `tile.id`**:
 
-```
-on new snapshot:
-  for each incoming tile:
-    existing = nodes[id]
-    if no existing            -> create node, play "enter" transition
-    else if content changed   -> replace the node's content
-    else                      -> leave the DOM node untouched;
-                                 only update position vars if x/y/w/h changed
-  for each existing node not in the snapshot:
-    play "exit" transition, then remove
+```mermaid
+flowchart TD
+    snap([New snapshot]) --> incoming{{For each incoming tile}}
+    incoming --> exists{Node exists<br/>for this id?}
+    exists -->|No| create[Create node,<br/>play enter transition]
+    exists -->|Yes| changed{Content<br/>changed?}
+    changed -->|Yes| replace[Replace node's content]
+    changed -->|No| keep[Leave DOM node untouched;<br/>update position vars only<br/>if x/y/w/h changed]
+
+    snap --> orphans{{For each existing node<br/>not in the snapshot}}
+    orphans --> remove[Play exit transition,<br/>then remove]
 ```
 
 Key property: an **unchanged tile's DOM node is never touched**, so a playing
