@@ -8,6 +8,7 @@ This is the high-level overview. Component detail lives in dedicated docs:
 
 - [`BACKEND.md`](BACKEND.md) — API, state, TTL, change detection (PHP).
 - [`FRONTEND.md`](FRONTEND.md) — the display page (Chromium kiosk + CSS Grid).
+- [`PULL-SOURCED-TILES.md`](PULL-SOURCED-TILES.md) — **optional/future**: server-side polling of source URLs.
 
 ---
 
