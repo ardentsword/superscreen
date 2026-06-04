@@ -1,7 +1,7 @@
 # SuperScreen — Frontend Design
 
 The display page that runs fullscreen in a Chromium kiosk on the Pi. See
-[`DESIGN.md`](DESIGN.md) for the overview and shared domain model, and
+[`README.md`](README.md) for the overview and shared domain model, and
 [`BACKEND.md`](BACKEND.md) for the API it talks to.
 
 Status: **draft** · Last updated: 2026-06-02

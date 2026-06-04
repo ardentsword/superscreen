@@ -1,7 +1,7 @@
 # SuperScreen — Operations & Device Management
 
 How the Raspberry Pi that runs SuperScreen is provisioned, deployed to, kept
-running, and monitored. See [`DESIGN.md`](DESIGN.md) for the overview,
+running, and monitored. See [`README.md`](README.md) for the overview,
 [`BACKEND.md`](BACKEND.md) and [`FRONTEND.md`](FRONTEND.md) for the components.
 
 Status: **draft** · Last updated: 2026-06-02

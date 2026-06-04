@@ -1,6 +1,6 @@
 # SuperScreen — Backend Design
 
-The API and state layer. See [`DESIGN.md`](DESIGN.md) for the overview and the
+The API and state layer. See [`README.md`](README.md) for the overview and the
 shared domain model, and [`FRONTEND.md`](FRONTEND.md) for the display.
 
 Status: **draft** · Last updated: 2026-06-02

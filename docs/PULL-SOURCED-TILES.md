@@ -2,7 +2,7 @@
 
 > **Status: OPTIONAL — not part of the MVP.** This describes an additive,
 > later-phase capability. The core system is push-based (callers POST tile
-> content); see [`DESIGN.md`](DESIGN.md), [`BACKEND.md`](BACKEND.md), and
+> content); see [`README.md`](README.md), [`BACKEND.md`](BACKEND.md), and
 > [`FRONTEND.md`](FRONTEND.md). Build and ship push first.
 
 Last updated: 2026-06-02
