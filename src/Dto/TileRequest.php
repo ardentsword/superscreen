@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Dto;
+
+use App\Tile\Size;
+
+/**
+ * The API-facing tile: what callers POST to /api/tiles. It carries a named size
+ * (not a position) and a duration; the backend resolves size → footprint, places
+ * the tile, and computes expiry to produce the internal {@see Tile}.
+ * See docs/README.md §4.1 and docs/BACKEND.md.
+ */
+class TileRequest
+{
+    /**
+     * @param array<string, mixed> $content the content object: `{ "type": ..., <payload> }`
+     */
+    public function __construct(
+        private readonly string $id,
+        private readonly array $content,
+        private readonly Size $size,
+        private readonly ?int $duration = null,
+    ) {}
+
+    public function getId(): string
+    {
+        return $this->id;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getContent(): array
+    {
+        return $this->content;
+    }
+
+    public function getSize(): Size
+    {
+        return $this->size;
+    }
+
+    public function getDuration(): ?int
+    {
+        return $this->duration;
+    }
+}
