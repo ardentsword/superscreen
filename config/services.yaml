@@ -19,6 +19,7 @@ services:
     App\:
         resource: '../src/'
         exclude:
+            - '../src/Dto/'  # data transfer objects, not services
             - '../src/Tile/' # value objects / enums, not services
 
     # add more service definitions when explicit configuration is needed
