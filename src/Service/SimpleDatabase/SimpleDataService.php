@@ -41,7 +41,7 @@ class SimpleDataService
     public function remove(string $key): self
     {
         $cache = $this->getAll();
-        if (!\array_key_exists($key, $cache)) {
+        if (!array_key_exists($key, $cache)) {
             return $this;
         }
 
@@ -78,7 +78,7 @@ class SimpleDataService
             ? []
             : json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
 
-        return $this->dataCache = \is_array($decoded) ? $decoded : [];
+        return $this->dataCache = is_array($decoded) ? $decoded : [];
     }
 
     private function writeCache(): void
