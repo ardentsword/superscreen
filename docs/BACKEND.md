@@ -58,7 +58,7 @@ caller.
   "grid": { "cols": 4, "rows": 3, "gap": 8 },
   "tiles": [
     { "id": "weather", "content": { "type": "iframe", "src": "..." },
-      "position": { "x": 0, "y": 0, "w": 1, "h": 2 } }
+      "position": { "x": 0, "y": 0, "w": 2, "h": 1 } }
   ]
 }
 ```
@@ -72,7 +72,7 @@ own display, not external callers.
 The backend is the bridge between the two tile representations (see the domain
 model in the overview):
 
-- **Resolve size → footprint.** Map `size` to `w`/`h` (`small` 1×1, `medium` 1×2,
+- **Resolve size → footprint.** Map `size` to `w`/`h` (`small` 1×1, `medium` 2×1,
   `large` 2×2).
 - **Assign position.** Pick `x`/`y` for the tile — callers never send coordinates.
   The placement strategy and the "no room" policy are **open questions** (see the

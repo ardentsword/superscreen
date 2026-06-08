@@ -97,7 +97,7 @@ Footprint is expressed as **width × height** in grid cells:
 | `size`   | Footprint (w × h) |
 |----------|-------------------|
 | `small`  | 1 × 1             |
-| `medium` | 1 × 2             |
+| `medium` | 2 × 1             |
 | `large`  | 2 × 2             |
 
 This is the only sizing knob exposed externally. It keeps callers simple and lets
