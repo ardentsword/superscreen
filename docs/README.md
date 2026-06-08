@@ -17,8 +17,8 @@ This is the high-level overview. Component detail lives in dedicated docs:
 
 A screen permanently mounted on a TV that shows a configurable **grid** of content
 tiles. The layout is controlled remotely through an **HTTP API**: callers push
-content with a grid position, size, and a duration (or permanent). The screen
-reflects changes within a few seconds.
+content with a named size and a duration (or permanent); the backend places it on
+the grid. The screen reflects changes within a few seconds.
 
 ## 2. Scope & assumptions
 
@@ -74,15 +74,49 @@ scale.
 
 ## 4. Domain model
 
-A **tile** is the unit of content placed on the grid. This is the shared contract
-between backend and frontend.
+A **tile** is the unit of content placed on the grid. There are **two
+representations**: the API-facing model that callers send, and the internal model
+the backend stores and the display renders. The backend translates between them.
+
+### 4.1 API-facing tile (what callers POST)
+
+The write API is deliberately minimal. Callers pick a content payload and a
+**named size** — they do **not** specify pixel/grid coordinates. The backend
+owns placement.
+
+| Field      | Type                                | Notes                                                        |
+|------------|-------------------------------------|--------------------------------------------------------------|
+| `id`       | string                              | Caller-supplied stable key. Re-posting the same id replaces it (upsert). |
+| `content`  | object                              | `{ "type": ..., ... }` — see content types below.           |
+| `size`     | enum `small` \| `medium` \| `large` | A pre-split footprint; maps to a grid span (see below).      |
+| `duration` | int \| null                         | Seconds the tile stays live. `null` = permanent.            |
+
+#### Size presets
+Footprint is expressed as **width × height** in grid cells:
+
+| `size`   | Footprint (w × h) |
+|----------|-------------------|
+| `small`  | 1 × 1             |
+| `medium` | 1 × 2             |
+| `large`  | 2 × 2             |
+
+This is the only sizing knob exposed externally. It keeps callers simple and lets
+the backend control the visual grammar of the screen. Position (`x`, `y`) is
+**not** caller-controlled — the backend places the tile (placement strategy is an
+open question, see §8).
+
+### 4.2 Internal tile (stored & rendered)
+
+Internally the system keeps the full, explicit model — unchanged from before. The
+backend resolves `size` → `w`, `h` and assigns `x`, `y` when it places the tile.
+The display consumes this model via `GET /api/layout`, so the **frontend is
+unaffected** by the API-facing simplification.
 
 | Field        | Type                | Notes                                                        |
 |--------------|---------------------|--------------------------------------------------------------|
-| `id`         | string              | Caller-supplied stable key. Re-posting the same id replaces it (upsert). |
-| `content`    | object              | `{ "type": ..., ... }` — see content types below.            |
-| `position`   | object              | `{ "x", "y", "w", "h" }` in grid cells (0-indexed origin).   |
-| `duration`   | int \| null         | Seconds the tile stays live. `null` = permanent.             |
+| `id`         | string              | As supplied.                                                 |
+| `content`    | object              | As supplied.                                                 |
+| `position`   | object              | `{ "x", "y", "w", "h" }` in grid cells (0-indexed origin). `w`/`h` derived from `size`; `x`/`y` assigned by placement. |
 | `expires_at` | int \| null         | **Computed server-side** = `now + duration`. Not sent by callers. |
 | `created_at` | int                 | Server timestamp.                                            |
 
@@ -128,7 +162,9 @@ Component-specific risks are listed in `BACKEND.md` and `FRONTEND.md`.
 
 ## 8. Open questions
 
-- **Tile overlap:** reject overlapping placements, or allow with z-ordering?
+- **Placement strategy:** since callers send only a `size`, the backend assigns
+  `x`/`y`. How — first-fit packing, fixed slots, insertion order? And what happens
+  when there's **no room** for the requested size (reject, evict oldest, queue)?
 - **Default/empty cells:** show nothing, a background, or a fallback tile?
 - **Transitions:** any fade/animation when a tile appears or expires?
 - **Grid reconfiguration:** is the grid size fixed in config, or also API-driven?
