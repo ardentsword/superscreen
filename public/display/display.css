@@ -26,7 +26,10 @@ html, body {
 .tile {
     grid-column: var(--x) / span var(--w);
     grid-row: var(--y) / span var(--h);
-    overflow: hidden;
+    position: relative; /* contains absolutely-positioned content within the tile */
+    min-width: 0;       /* let the cell shrink below its content's intrinsic size */
+    min-height: 0;
+    overflow: hidden;   /* clip anything that exceeds the tile */
     border-radius: 10px;
     border: 2px solid rgba(255, 255, 255, 0.35);
     background: #111;
