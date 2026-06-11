@@ -43,7 +43,11 @@ final readonly class LayoutService
         }
         unset($content['type']);
 
-        $existing = $this->tiles->find($request->getId());
+        // id is optional: generate a hashed one when missing/empty.
+        $id = $request->getId();
+        $id = ($id === null || $id === '') ? self::generateId() : $id;
+
+        $existing = $this->tiles->find($id);
         $size = $request->getSize();
 
         // Keep the current position on re-post when the footprint is unchanged,
@@ -52,11 +56,11 @@ final readonly class LayoutService
             && $existing->getPosition()->w === $size->width()
             && $existing->getPosition()->h === $size->height())
             ? $existing->getPosition()
-            : $this->placer->place($size, $this->occupiedExcept($request->getId(), $now));
+            : $this->placer->place($size, $this->occupiedExcept($id, $now));
 
         $duration = $request->getDuration();
         $tile = new Tile(
-            id: $request->getId(),
+            id: $id,
             contentType: $contentType,
             content: $content,
             position: $position,
@@ -66,6 +70,14 @@ final readonly class LayoutService
         $this->tiles->store($tile);
 
         return new TileUpsertResult($tile, $existing === null);
+    }
+
+    /**
+     * A generated tile id: a truncated SHA-256 hex string of random bytes.
+     */
+    private static function generateId(): string
+    {
+        return substr(hash('sha256', random_bytes(16)), 0, 16);
     }
 
     /**

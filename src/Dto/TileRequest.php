@@ -15,16 +15,17 @@ use App\Tile\Size;
 readonly class TileRequest
 {
     /**
-     * @param array<string, mixed> $content the content object: `{ "type": ..., <payload> }`
+     * @param array<string, mixed> $content  the content object: `{ "type": ..., <payload> }`
+     * @param string|null          $id        optional; the backend generates one when null/empty
      */
     public function __construct(
-        private string $id,
         private array $content,
         private Size $size,
+        private ?string $id = null,
         private ?int $duration = null,
     ) {}
 
-    public function getId(): string
+    public function getId(): ?string
     {
         return $this->id;
     }

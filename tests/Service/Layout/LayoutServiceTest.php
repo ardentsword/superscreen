@@ -45,7 +45,12 @@ final class LayoutServiceTest extends TestCase
      */
     private function request(string $id, Size $size, string $type = 'text', array $payload = ['text' => 'x'], ?int $duration = null): TileRequest
     {
-        return new TileRequest($id, ['type' => $type, ...$payload], $size, $duration);
+        return new TileRequest(
+            content: ['type' => $type, ...$payload],
+            size: $size,
+            id: $id,
+            duration: $duration,
+        );
     }
 
     #[Test]
@@ -88,6 +93,25 @@ final class LayoutServiceTest extends TestCase
         self::assertEquals(0, $result->tile->getPosition()->y);
         self::assertSame(self::NOW, $result->tile->getCreatedAt()); // original createdAt preserved
         self::assertSame('second', $this->tiles->find('a')->getContent()['text']);
+    }
+
+    #[Test]
+    public function generates_an_id_when_none_is_given(): void
+    {
+        $service = $this->service();
+
+        $fromNull = $service->upsert(new TileRequest(['type' => 'text', 'text' => 'a'], Size::Small), self::NOW);
+        $fromEmpty = $service->upsert(new TileRequest(['type' => 'text', 'text' => 'b'], Size::Small, ''), self::NOW);
+
+        foreach ([$fromNull, $fromEmpty] as $result) {
+            self::assertTrue($result->created);
+            self::assertNotSame('', $result->tile->getId());
+            self::assertMatchesRegularExpression('/^[0-9a-f]{16}$/', $result->tile->getId());
+            self::assertNotNull($this->tiles->find($result->tile->getId()));
+        }
+
+        // Two generated ids must differ.
+        self::assertNotSame($fromNull->tile->getId(), $fromEmpty->tile->getId());
     }
 
     #[Test]

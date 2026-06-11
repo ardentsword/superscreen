@@ -48,7 +48,9 @@ returns. See [`FRONTEND.md`](FRONTEND.md).
 ```
 The write API is **API-facing**: callers send a named `size`
 (`small`/`medium`/`large`), **not** `x`/`y`/`w`/`h`. The backend resolves the size
-and places the tile (see §3a). `duration` is optional; omit or `null` for a
+and places the tile (see §3a). `id` is optional — omit or send an empty string and
+the backend generates one (truncated SHA-256 hex) and returns it in the response.
+`duration` is optional; omit or `null` for a
 permanent tile. `expires_at` is computed server-side and never accepted from the
 caller.
 

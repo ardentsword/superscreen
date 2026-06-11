@@ -86,7 +86,7 @@ owns placement.
 
 | Field      | Type                                | Notes                                                        |
 |------------|-------------------------------------|--------------------------------------------------------------|
-| `id`       | string                              | Caller-supplied stable key. Re-posting the same id replaces it (upsert). |
+| `id`       | string \| null                      | Optional stable key. Re-posting the same id replaces it (upsert). When omitted/empty the backend generates one (truncated SHA-256 hex) and returns it. |
 | `content`  | object                              | `{ "type": ..., ... }` — see content types below.           |
 | `size`     | enum `small` \| `medium` \| `large` | A pre-split footprint; maps to a grid span (see below).      |
 | `duration` | int \| null                         | Seconds the tile stays live. `null` = permanent.            |
