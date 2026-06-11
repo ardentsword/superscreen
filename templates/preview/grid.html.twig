@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperScreen — grid preview ({{ cols }}×{{ rows }})</title>
+    <style>
+        :root { --gap: {{ gap }}px; }
+
+        * { box-sizing: border-box; }
+
+        html, body { margin: 0; height: 100%; background: #111; color: #eee;
+            font-family: ui-sans-serif, system-ui, sans-serif; }
+
+        #screen {
+            display: grid;
+            grid-template-columns: repeat({{ cols }}, 1fr);
+            grid-template-rows: repeat({{ rows }}, 1fr);
+            gap: var(--gap);
+            padding: var(--gap);
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .tile {
+            grid-column: var(--x) / span var(--w);
+            grid-row: var(--y) / span var(--h);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, .25);
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+        }
+
+        .tile small { font-weight: 400; opacity: .8; }
+
+        /* One colour per size, to make footprints easy to read. */
+        .tile.small  { background: #2563eb; }
+        .tile.medium { background: #16a34a; }
+        .tile.large  { background: #db2777; }
+    </style>
+</head>
+<body>
+    <div id="screen">
+        {% for tile in tiles %}
+            <div class="tile {{ tile.size }}"
+                 style="--x: {{ tile.x + 1 }}; --y: {{ tile.y + 1 }}; --w: {{ tile.w }}; --h: {{ tile.h }};">
+                {{ tile.size }}
+                <small>{{ tile.w }}×{{ tile.h }}</small>
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
