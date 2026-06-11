@@ -162,9 +162,11 @@ Component-specific risks are listed in `BACKEND.md` and `FRONTEND.md`.
 
 ## 8. Open questions
 
-- **Placement strategy:** since callers send only a `size`, the backend assigns
-  `x`/`y`. How — first-fit packing, fixed slots, insertion order? And what happens
-  when there's **no room** for the requested size (reject, evict oldest, queue)?
+- **Placement strategy** *(decided)*: callers send only a `size`; the backend
+  assigns `x`/`y` by **first-fit** (top-to-bottom, left-to-right). **No room →
+  queue**: the tile is held and placed automatically (greedy, FIFO) when space
+  frees via expiry or deletion; its TTL starts when it's placed. A tile larger
+  than the whole grid is rejected (409).
 - **Default/empty cells:** show nothing, a background, or a fallback tile?
 - **Transitions:** any fade/animation when a tile appears or expires?
 - **Grid reconfiguration:** is the grid size fixed in config, or also API-driven?

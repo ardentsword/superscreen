@@ -12,6 +12,9 @@ use App\Tile\Size;
  */
 final class NoSpaceException extends \RuntimeException
 {
+    /** True when the tile can never fit (larger than the grid), vs. just no room right now. */
+    public bool $permanent = false;
+
     public static function noRoom(Size $size, int $w, int $h, int $cols, int $rows): self
     {
         return new self(\sprintf(
@@ -22,9 +25,12 @@ final class NoSpaceException extends \RuntimeException
 
     public static function tooLarge(Size $size, int $w, int $h, int $cols, int $rows): self
     {
-        return new self(\sprintf(
+        $e = new self(\sprintf(
             'A %s (%d×%d) tile is larger than the %d×%d grid.',
             $size->value, $w, $h, $cols, $rows,
         ));
+        $e->permanent = true;
+
+        return $e;
     }
 }

@@ -9,6 +9,7 @@ use App\Service\Layout\LayoutService;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
+use App\Service\SimpleDatabase\QueueRepository;
 use App\Service\SimpleDatabase\SimpleDataService;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\Size;
@@ -21,11 +22,15 @@ final class LayoutServiceTest extends TestCase
 
     private string $stateFile;
     private TileRepository $tiles;
+    private QueueRepository $queue;
 
     protected function setUp(): void
     {
         $this->stateFile = sys_get_temp_dir() . '/ss_test_' . bin2hex(random_bytes(6)) . '.json';
-        $this->tiles = new TileRepository(new SimpleDataService($this->stateFile));
+        // One shared store, like the single autowired service in production.
+        $data = new SimpleDataService($this->stateFile);
+        $this->tiles = new TileRepository($data);
+        $this->queue = new QueueRepository($data);
     }
 
     protected function tearDown(): void
@@ -37,7 +42,7 @@ final class LayoutServiceTest extends TestCase
 
     private function service(int $cols = 6, int $rows = 4): LayoutService
     {
-        return new LayoutService($this->tiles, new TilePlacer($cols, $rows));
+        return new LayoutService($this->tiles, $this->queue, new TilePlacer($cols, $rows));
     }
 
     /**
@@ -122,12 +127,56 @@ final class LayoutServiceTest extends TestCase
     }
 
     #[Test]
-    public function no_space_throws(): void
+    public function no_space_queues_the_tile_instead_of_failing(): void
     {
         $service = $this->service(cols: 1, rows: 1);
         $service->upsert($this->request('a', Size::Small), self::NOW);
 
-        $this->expectException(NoSpaceException::class);
+        $result = $service->upsert($this->request('b', Size::Small), self::NOW);
+
+        self::assertTrue($result->queued);
+        self::assertNull($result->tile);
+        self::assertSame('b', $result->id);
+        // Not on the grid yet, but waiting in the queue.
+        self::assertNull($this->tiles->find('b'));
+        self::assertNotNull($this->queue->find('b'));
+    }
+
+    #[Test]
+    public function queued_tile_is_placed_when_a_tile_is_deleted(): void
+    {
+        $service = $this->service(cols: 1, rows: 1);
+        $service->upsert($this->request('a', Size::Small), self::NOW);
         $service->upsert($this->request('b', Size::Small), self::NOW);
+
+        $service->delete('a', self::NOW + 10);
+
+        self::assertNotNull($this->tiles->find('b'));   // promoted from the queue
+        self::assertNull($this->queue->find('b'));      // no longer queued
+        self::assertSame(self::NOW + 10, $this->tiles->find('b')->getCreatedAt()); // TTL starts at placement
+    }
+
+    #[Test]
+    public function queued_tile_is_placed_when_space_frees_via_expiry(): void
+    {
+        $service = $this->service(cols: 1, rows: 1);
+        $service->upsert($this->request('a', Size::Small, duration: 60), self::NOW);
+        $service->upsert($this->request('b', Size::Small), self::NOW);
+
+        // 'a' has expired; liveTiles drains the queue into the freed cell.
+        $live = $service->liveTiles(self::NOW + 120);
+
+        $ids = array_map(static fn ($t) => $t->getId(), $live);
+        self::assertSame(['b'], $ids);
+        self::assertNull($this->queue->find('b'));
+    }
+
+    #[Test]
+    public function tile_larger_than_the_grid_still_throws(): void
+    {
+        $service = $this->service(cols: 1, rows: 1);
+
+        $this->expectException(NoSpaceException::class);
+        $service->upsert($this->request('big', Size::Medium), self::NOW); // 2×1 cannot fit 1×1
     }
 }

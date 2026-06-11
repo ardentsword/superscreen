@@ -9,7 +9,6 @@ use App\Dto\TileRequest;
 use App\Service\Layout\LayoutService;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
-use App\Service\SimpleDatabase\TileRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,13 +37,19 @@ final class TileApiController extends AbstractController
         } catch (UnknownContentTypeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (NoSpaceException $e) {
+            // Only thrown when the tile can never fit (larger than the grid).
             return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
+        }
+
+        // No room right now: the tile was queued and will be placed when space frees.
+        if ($result->queued) {
+            return $this->json(['id' => $result->id, 'status' => 'queued'], Response::HTTP_ACCEPTED);
         }
 
         $position = $result->tile->getPosition();
 
         return $this->json([
-            'id' => $result->tile->getId(),
+            'id' => $result->id,
             'position' => [
                 'x' => $position->x,
                 'y' => $position->y,
@@ -56,12 +61,13 @@ final class TileApiController extends AbstractController
     }
 
     /**
-     * Remove a tile by id. Idempotent — deleting a missing tile is a no-op.
+     * Remove a tile by id (placed or queued). Idempotent. Frees space, so the
+     * queue is drained afterwards.
      */
     #[Route('/tiles/{id}', name: 'tiles_delete', methods: ['DELETE'])]
-    public function delete(string $id, TileRepository $tiles): JsonResponse
+    public function delete(string $id, LayoutService $layout): JsonResponse
     {
-        $tiles->delete($id);
+        $layout->delete($id, time());
 
         return $this->json(['deleted' => $id]);
     }
@@ -74,13 +80,11 @@ final class TileApiController extends AbstractController
     #[Route('/layout', name: 'layout', methods: ['GET'])]
     public function layout(
         Request $request,
-        TileRepository $tiles,
+        LayoutService $layout,
         #[Autowire('%app.grid.cols%')] int $cols,
         #[Autowire('%app.grid.rows%')] int $rows,
         #[Autowire('%app.grid.gap%')] int $gap,
     ): JsonResponse {
-        $now = time();
-
         $payload = [
             'grid' => ['cols' => $cols, 'rows' => $rows, 'gap' => $gap],
             'tiles' => array_map(
@@ -94,7 +98,7 @@ final class TileApiController extends AbstractController
                         'h' => $tile->getPosition()->h,
                     ],
                 ],
-                $tiles->findLive($now),
+                $layout->liveTiles(time()),
             ),
         ];
 

@@ -76,10 +76,13 @@ model in the overview):
 
 - **Resolve size → footprint.** Map `size` to `w`/`h` (`small` 1×1, `medium` 2×1,
   `large` 2×2).
-- **Assign position.** Pick `x`/`y` for the tile — callers never send coordinates.
-  The placement strategy and the "no room" policy are **open questions** (see the
-  overview); keep them isolated behind a single placement step so the algorithm
-  can change without touching the API or storage.
+- **Assign position.** Pick `x`/`y` for the tile (callers never send coordinates)
+  by first-fit. Kept behind a single placement step (`TilePlacer`) so the
+  algorithm can change without touching the API or storage.
+- **Queue when full.** If the tile doesn't fit, it's queued (not rejected) and
+  placed automatically when space frees (drained on `GET /api/layout` and on
+  delete; greedy, FIFO). `POST` returns **202 Accepted** in that case. A tile
+  larger than the whole grid can never fit and is rejected with **409**.
 - **Store the internal model.** Persist the full `{ id, content, position,
   expires_at, created_at }` and serve it from `GET /api/layout`.
 
@@ -122,7 +125,7 @@ visual grammar of the screen is controlled centrally.
   `image`/`video`/`iframe`).
 - `duration` is `null` or a positive integer.
 - `id` is a non-empty, stable string.
-- Placement validity (fit within the grid, overlap, "no room" handling) is the
+- Placement validity (fit within the grid, overlap) is the
   backend's responsibility at placement time, not caller input — **TBD**, see open
   questions in the overview.
 

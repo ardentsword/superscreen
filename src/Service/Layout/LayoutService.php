@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Service\Layout;
 
+use App\Dto\QueuedTile;
 use App\Dto\Tile;
 use App\Dto\TileRequest;
 use App\Dto\TileUpsertResult;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
+use App\Service\SimpleDatabase\QueueRepository;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\ContentType;
 use App\Tile\Position;
@@ -16,12 +18,15 @@ use App\Tile\Position;
 /**
  * Application service for layout mutations: turns an API-facing TileRequest into
  * a placed, persisted internal Tile (resolve content type, size → footprint →
- * position, compute expiry, store). The controller only maps HTTP ↔ this service.
+ * position, compute expiry). When the grid is full the tile is queued instead,
+ * and the queue is drained (greedily, FIFO) whenever space frees up. The
+ * controller only maps HTTP ↔ this service.
  */
 final readonly class LayoutService
 {
     public function __construct(
         private TileRepository $tiles,
+        private QueueRepository $queue,
         private TilePlacer $placer,
     ) {}
 
@@ -31,7 +36,7 @@ final readonly class LayoutService
      * @param int $now current unix time (seconds)
      *
      * @throws UnknownContentTypeException when content.type is unknown/missing
-     * @throws NoSpaceException            when the grid has no room
+     * @throws NoSpaceException            when the tile can never fit (larger than the grid)
      */
     public function upsert(TileRequest $request, int $now): TileUpsertResult
     {
@@ -50,13 +55,32 @@ final readonly class LayoutService
         $existing = $this->tiles->find($id);
         $size = $request->getSize();
 
-        // Keep the current position on re-post when the footprint is unchanged,
-        // so the screen doesn't reshuffle; otherwise place it fresh.
-        $position = ($existing !== null
-            && $existing->getPosition()->w === $size->width()
-            && $existing->getPosition()->h === $size->height())
-            ? $existing->getPosition()
-            : $this->placer->place($size, $this->occupiedExcept($id, $now));
+        try {
+            // Keep the current position on re-post when the footprint is
+            // unchanged, so the screen doesn't reshuffle; otherwise place fresh.
+            $position = ($existing !== null
+                && $existing->getPosition()->w === $size->width()
+                && $existing->getPosition()->h === $size->height())
+                ? $existing->getPosition()
+                : $this->placer->place($size, $this->occupiedExcept($id, $now));
+        } catch (NoSpaceException $e) {
+            if ($e->permanent) {
+                throw $e; // larger than the grid — queuing would never help
+            }
+
+            // No room right now: queue it (an id is placed XOR queued).
+            $this->tiles->delete($id);
+            $this->queue->enqueue(new QueuedTile(
+                id: $id,
+                contentType: $contentType,
+                content: $content,
+                size: $size,
+                duration: $request->getDuration(),
+                enqueuedAt: $this->queue->find($id)?->getEnqueuedAt() ?? $now,
+            ));
+
+            return new TileUpsertResult($id, null, false, true);
+        }
 
         $duration = $request->getDuration();
         $tile = new Tile(
@@ -68,8 +92,70 @@ final readonly class LayoutService
             expiresAt: $duration === null ? null : $now + $duration,
         );
         $this->tiles->store($tile);
+        $this->queue->remove($id); // was queued before, now placed
 
-        return new TileUpsertResult($tile, $existing === null);
+        return new TileUpsertResult($id, $tile, $existing === null, false);
+    }
+
+    /**
+     * Remove a tile (placed or queued), then drain the queue into any freed space.
+     */
+    public function delete(string $id, int $now): void
+    {
+        $this->tiles->delete($id);
+        $this->queue->remove($id);
+        $this->drainQueue($now);
+    }
+
+    /**
+     * The live tiles for the display. Draining first means queued tiles appear
+     * as soon as expiry frees space, on the display's normal poll.
+     *
+     * @return list<Tile>
+     */
+    public function liveTiles(int $now): array
+    {
+        $this->drainQueue($now);
+
+        return $this->tiles->findLive($now);
+    }
+
+    /**
+     * Place as many queued tiles as currently fit, in FIFO order. A queued tile
+     * that still doesn't fit is left for a later round (greedy: smaller entries
+     * behind it may still be placed).
+     */
+    private function drainQueue(int $now): void
+    {
+        $queued = $this->queue->all();
+        if ($queued === []) {
+            return;
+        }
+
+        $occupied = array_map(
+            static fn (Tile $tile): Position => $tile->getPosition(),
+            $this->tiles->findLive($now),
+        );
+
+        foreach ($queued as $entry) {
+            try {
+                $position = $this->placer->place($entry->getSize(), $occupied);
+            } catch (NoSpaceException) {
+                continue; // doesn't fit now; leave it queued
+            }
+
+            $duration = $entry->getDuration();
+            $this->tiles->store(new Tile(
+                id: $entry->getId(),
+                contentType: $entry->getContentType(),
+                content: $entry->getContent(),
+                position: $position,
+                createdAt: $now,
+                expiresAt: $duration === null ? null : $now + $duration,
+            ));
+            $this->queue->remove($entry->getId());
+            $occupied[] = $position;
+        }
     }
 
     /**

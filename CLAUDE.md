@@ -65,8 +65,8 @@ computes `expires_at` from `duration`. Grid dimensions are parameters
 
 `App\Service\Placement\TilePlacer` — first-fit placement (top-to-bottom,
 left-to-right). Throws `NoSpaceException` when the grid is full (controller →
-409). See `docs/README.md` §8 for the strategy / "no room" policy (both chosen
-defaults, easily swapped).
+409 only for tiles larger than the grid; otherwise full → queue). See
+`docs/README.md` §8 for the strategy / "no room" policy.
 
 ## Persistence — SimpleDatabase pattern
 
@@ -95,8 +95,13 @@ All endpoints are **implemented**. The controller is thin — it maps HTTP to
 - `POST /api/tiles` — `LayoutService::upsert(TileRequest, now)` resolves content
   type, places via `TilePlacer`, computes expiry, persists, returns a
   `TileUpsertResult`. Controller → 201 (new) / 200 (updated) with the resolved
-  position; 409 (`NoSpaceException`) when full; 422 (`UnknownContentTypeException`)
-  on bad content type. Re-posting an unchanged footprint keeps its position.
+  position; **202** when there's no room (tile **queued**, see below); 422
+  (`UnknownContentTypeException`) on bad content type; 409 only when a tile is
+  larger than the whole grid. Re-posting an unchanged footprint keeps its position.
+- **Queue when full:** no-room tiles go to a `QueueRepository` (`queue.<id>`,
+  same JSON store). `LayoutService` drains it greedily (FIFO) on `GET /api/layout`
+  (`liveTiles`) and on delete — so queued tiles appear when expiry/deletion frees
+  space. A queued tile's TTL starts when it's placed. An id is placed XOR queued.
 - `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository`.
 - `GET /api/layout` — `{grid, tiles}` snapshot; sets a body-hash ETag and returns
   304 via `isNotModified`.
