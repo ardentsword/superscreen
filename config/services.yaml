@@ -10,6 +10,7 @@ parameters:
     app.grid.cols: 6
     app.grid.rows: 4
     app.grid.gap: 8
+    app.poll_interval: 3 # seconds between display polls
 
 services:
     # default configuration for services in *this* file

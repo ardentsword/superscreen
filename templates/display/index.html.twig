@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperScreen</title>
+    <link rel="stylesheet" href="/display/display.css">
+    <script>
+        window.SUPERSCREEN = {
+            layoutUrl: '{{ path('api_layout') }}',
+            pollInterval: {{ pollInterval }}
+        };
+    </script>
+    <script type="module" src="/display/app.js"></script>
+</head>
+<body>
+    <div id="screen"></div>
+</body>
+</html>

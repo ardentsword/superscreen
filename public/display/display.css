@@ -1,0 +1,74 @@
+:root {
+    --cols: 1;
+    --rows: 1;
+    --gap: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+}
+
+#screen {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-template-rows: repeat(var(--rows), 1fr);
+    gap: var(--gap);
+    padding: var(--gap);
+    width: 100vw;
+    height: 100vh;
+}
+
+.tile {
+    grid-column: var(--x) / span var(--w);
+    grid-row: var(--y) / span var(--h);
+    overflow: hidden;
+    border-radius: 10px;
+    background: #111;
+    color: #eee;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Content fills the tile. */
+.tile > * {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.tile img,
+.tile video {
+    object-fit: cover;
+}
+
+.tile iframe {
+    border: 0;
+}
+
+.tile .text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.5em;
+    font-size: clamp(1rem, 4vh, 4rem);
+    line-height: 1.2;
+}
+
+.tile .html {
+    overflow: auto;
+}
+
+/* An unknown content type renders visibly, never as a blank cell. */
+.tile .unknown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #a00;
+    text-align: center;
+    padding: 0.5em;
+}

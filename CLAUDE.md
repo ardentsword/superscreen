@@ -90,13 +90,26 @@ owns the array↔DTO mapping.**
 - `DELETE /api/tiles/{id}` — remove a tile.
 - `GET /api/layout` — the snapshot the display polls (grid + live tiles + ETag).
 
-Status:
-- `POST /api/tiles` — **implemented.** Maps the body to `TileRequest`
-  (`#[MapRequestPayload]`), resolves content type, places via `TilePlacer`,
-  computes expiry, and persists. Returns 201 (new) / 200 (updated) with the
-  resolved position; 409 when the grid is full; 422 on bad size/content type.
-  Re-posting an id with an unchanged footprint keeps its position.
-- `DELETE /api/tiles/{id}` and `GET /api/layout` — still `501 Not Implemented`.
+All endpoints are **implemented**:
+- `POST /api/tiles` — maps the body to `TileRequest` (`#[MapRequestPayload]`),
+  resolves content type, places via `TilePlacer`, computes expiry, persists.
+  201 (new) / 200 (updated) with the resolved position; 409 when full; 422 on bad
+  size/content type. Re-posting an unchanged footprint keeps its position.
+- `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository`.
+- `GET /api/layout` — `{grid, tiles}` snapshot; sets a body-hash ETag and returns
+  304 via `isNotModified`.
+
+## Display (the renderer)
+
+`App\Controller\DisplayController` serves `GET /` → `templates/display/index.html.twig`.
+The page is a vanilla, no-build renderer (assets in `public/display/`):
+- `app.js` polls `GET /api/layout` every `%app.poll_interval%` s with
+  `If-None-Match`, ignores 304, keeps the last layout on error.
+- **Keyed reconciliation by tile id**: unchanged tiles' DOM is left intact (video
+  keeps playing, iframe stays loaded); only changed content is rebuilt; position
+  is set via CSS grid vars. Renderers per `ContentType`; unknown type shows a
+  visible red placeholder.
+- `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
 
 ## Conventions & gotchas
 
@@ -112,7 +125,8 @@ Status:
 
 ## Not yet built (rough next steps)
 
-1. `DELETE /api/tiles/{id}`: remove via `TileRepository`.
-2. `GET /api/layout`: build the snapshot (grid + live tiles) with ETag/304.
-3. Display frontend (`GET /`): CSS-grid page + vanilla JS poll/reconcile.
-4. Poll-interval parameter for the display; explicit validation constraints.
+1. Explicit validation constraints on `TileRequest` (e.g. non-empty id, required
+   content fields per type).
+2. Optional `X-Api-Key` auth on writes (`docs/BACKEND.md §8`).
+3. Display polish: enter/exit transitions, nightly auto-reload, stale indicator.
+4. Pi deployment (`docs/OPERATIONS.md`).
