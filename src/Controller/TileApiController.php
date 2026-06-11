@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\Tile;
 use App\Dto\TileRequest;
+use App\Service\Placement\NoSpaceException;
+use App\Service\Placement\TilePlacer;
+use App\Service\SimpleDatabase\TileRepository;
+use App\Tile\ContentType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,20 +29,66 @@ final class TileApiController extends AbstractController
      * payload; the backend will resolve size → position and persist it.
      */
     #[Route('/tiles', name: 'tiles_upsert', methods: ['POST'])]
-    public function upsert(#[MapRequestPayload] TileRequest $tile): JsonResponse
-    {
-        // The JSON body is now mapped to TileRequest. Still TODO: resolve
-        // size → position (placement), compute expiry from duration, and
-        // persist via TileRepository.
+    public function upsert(
+        #[MapRequestPayload] TileRequest $request,
+        TileRepository $tiles,
+        TilePlacer $placer,
+    ): JsonResponse {
+        $content = $request->getContent();
+        $contentType = ContentType::tryFrom((string) ($content['type'] ?? ''));
+        if ($contentType === null) {
+            return $this->json(
+                ['error' => 'Unknown or missing content type.'],
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+        unset($content['type']);
+
+        $now = time();
+        $existing = $tiles->find($request->getId());
+        $size = $request->getSize();
+
+        // Occupancy excludes the tile being upserted, so it can reuse its cells.
+        $occupied = [];
+        foreach ($tiles->findLive($now) as $live) {
+            if ($live->getId() !== $request->getId()) {
+                $occupied[] = $live->getPosition();
+            }
+        }
+
+        try {
+            // Keep the current position on re-post when the footprint is
+            // unchanged, so the screen doesn't reshuffle.
+            $position = ($existing !== null
+                && $existing->getPosition()->w === $size->width()
+                && $existing->getPosition()->h === $size->height())
+                ? $existing->getPosition()
+                : $placer->place($size, $occupied);
+        } catch (NoSpaceException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
+        }
+
+        $duration = $request->getDuration();
+        $tile = new Tile(
+            id: $request->getId(),
+            contentType: $contentType,
+            content: $content,
+            position: $position,
+            createdAt: $existing?->getCreatedAt() ?? $now,
+            expiresAt: $duration === null ? null : $now + $duration,
+        );
+        $tiles->store($tile);
+
         return $this->json([
-            'received' => [
-                'id' => $tile->getId(),
-                'size' => $tile->getSize()->value,
-                'duration' => $tile->getDuration(),
-                'content' => $tile->getContent(),
+            'id' => $tile->getId(),
+            'position' => [
+                'x' => $position->x,
+                'y' => $position->y,
+                'w' => $position->w,
+                'h' => $position->h,
             ],
-            'note' => 'Payload mapped; not persisted yet.',
-        ]);
+            'expires_at' => $tile->getExpiresAt(),
+        ], $existing === null ? Response::HTTP_CREATED : Response::HTTP_OK);
     }
 
     /**

@@ -59,9 +59,14 @@ Supporting types in `App\Tile\`:
 - `ContentType` enum — `text`, `image`, `video`, `iframe`, `html`.
 - `Position` — pure value object (x, y, w, h).
 
-The backend's job (not yet implemented): resolve `size` → `w`/`h`, **assign x/y
-(placement)**, compute `expires_at` from `duration`. Placement strategy and the
-"no room" policy are open questions — see `docs/README.md` §8.
+The backend resolves `size` → `w`/`h`, **assigns x/y** via `TilePlacer`, and
+computes `expires_at` from `duration`. Grid dimensions are parameters
+(`app.grid.cols`/`rows`/`gap`, default 6×4×8 in `config/services.yaml`).
+
+`App\Service\Placement\TilePlacer` — first-fit placement (top-to-bottom,
+left-to-right). Throws `NoSpaceException` when the grid is full (controller →
+409). See `docs/README.md` §8 for the strategy / "no room" policy (both chosen
+defaults, easily swapped).
 
 ## Persistence — SimpleDatabase pattern
 
@@ -85,11 +90,13 @@ owns the array↔DTO mapping.**
 - `DELETE /api/tiles/{id}` — remove a tile.
 - `GET /api/layout` — the snapshot the display polls (grid + live tiles + ETag).
 
-Status: `POST /api/tiles` maps the JSON body to `TileRequest` via
-`#[MapRequestPayload]` (Serializer installed) — it echoes the parsed payload but
-does **not** persist yet (placement + storage still TODO). Invalid enum/type
-yields a 422 automatically. `DELETE` and `GET /api/layout` still return
-`501 Not Implemented`. No explicit validation constraints added yet.
+Status:
+- `POST /api/tiles` — **implemented.** Maps the body to `TileRequest`
+  (`#[MapRequestPayload]`), resolves content type, places via `TilePlacer`,
+  computes expiry, and persists. Returns 201 (new) / 200 (updated) with the
+  resolved position; 409 when the grid is full; 422 on bad size/content type.
+  Re-posting an id with an unchanged footprint keeps its position.
+- `DELETE /api/tiles/{id}` and `GET /api/layout` — still `501 Not Implemented`.
 
 ## Conventions & gotchas
 
@@ -105,8 +112,7 @@ yields a 422 automatically. `DELETE` and `GET /api/layout` still return
 
 ## Not yet built (rough next steps)
 
-1. Placement: resolve `size` → `Position` (assign x/y) — the open design question.
-2. Controller logic: bind `TileRequest`, validate, persist, build the layout
-   snapshot with ETag/304.
-3. Grid config (cols/rows/gap, poll interval) as parameters.
-4. Display frontend (`GET /`): CSS-grid page + vanilla JS poll/reconcile.
+1. `DELETE /api/tiles/{id}`: remove via `TileRepository`.
+2. `GET /api/layout`: build the snapshot (grid + live tiles) with ETag/304.
+3. Display frontend (`GET /`): CSS-grid page + vanilla JS poll/reconcile.
+4. Poll-interval parameter for the display; explicit validation constraints.
