@@ -12,16 +12,16 @@ use App\Tile\Size;
  * the tile, and computes expiry to produce the internal {@see Tile}.
  * See docs/README.md §4.1 and docs/BACKEND.md.
  */
-class TileRequest
+readonly class TileRequest
 {
     /**
      * @param array<string, mixed> $content the content object: `{ "type": ..., <payload> }`
      */
     public function __construct(
-        private readonly string $id,
-        private readonly array $content,
-        private readonly Size $size,
-        private readonly ?int $duration = null,
+        private string $id,
+        private array $content,
+        private Size $size,
+        private ?int $duration = null,
     ) {}
 
     public function getId(): string

@@ -6,10 +6,10 @@ namespace App\Controller;
 
 use App\Dto\Tile;
 use App\Dto\TileRequest;
+use App\Service\Layout\LayoutService;
+use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
-use App\Service\Placement\TilePlacer;
 use App\Service\SimpleDatabase\TileRepository;
-use App\Tile\ContentType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,64 +31,28 @@ final class TileApiController extends AbstractController
     #[Route('/tiles', name: 'tiles_upsert', methods: ['POST'])]
     public function upsert(
         #[MapRequestPayload] TileRequest $request,
-        TileRepository $tiles,
-        TilePlacer $placer,
+        LayoutService $layout,
     ): JsonResponse {
-        $content = $request->getContent();
-        $contentType = ContentType::tryFrom((string) ($content['type'] ?? ''));
-        if ($contentType === null) {
-            return $this->json(
-                ['error' => 'Unknown or missing content type.'],
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-            );
-        }
-        unset($content['type']);
-
-        $now = time();
-        $existing = $tiles->find($request->getId());
-        $size = $request->getSize();
-
-        // Occupancy excludes the tile being upserted, so it can reuse its cells.
-        $occupied = [];
-        foreach ($tiles->findLive($now) as $live) {
-            if ($live->getId() !== $request->getId()) {
-                $occupied[] = $live->getPosition();
-            }
-        }
-
         try {
-            // Keep the current position on re-post when the footprint is
-            // unchanged, so the screen doesn't reshuffle.
-            $position = ($existing !== null
-                && $existing->getPosition()->w === $size->width()
-                && $existing->getPosition()->h === $size->height())
-                ? $existing->getPosition()
-                : $placer->place($size, $occupied);
+            $result = $layout->upsert($request, time());
+        } catch (UnknownContentTypeException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (NoSpaceException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
         }
 
-        $duration = $request->getDuration();
-        $tile = new Tile(
-            id: $request->getId(),
-            contentType: $contentType,
-            content: $content,
-            position: $position,
-            createdAt: $existing?->getCreatedAt() ?? $now,
-            expiresAt: $duration === null ? null : $now + $duration,
-        );
-        $tiles->store($tile);
+        $position = $result->tile->getPosition();
 
         return $this->json([
-            'id' => $tile->getId(),
+            'id' => $result->tile->getId(),
             'position' => [
                 'x' => $position->x,
                 'y' => $position->y,
                 'w' => $position->w,
                 'h' => $position->h,
             ],
-            'expires_at' => $tile->getExpiresAt(),
-        ], $existing === null ? Response::HTTP_CREATED : Response::HTTP_OK);
+            'expires_at' => $result->tile->getExpiresAt(),
+        ], $result->created ? Response::HTTP_CREATED : Response::HTTP_OK);
     }
 
     /**

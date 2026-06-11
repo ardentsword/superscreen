@@ -90,11 +90,13 @@ owns the array↔DTO mapping.**
 - `DELETE /api/tiles/{id}` — remove a tile.
 - `GET /api/layout` — the snapshot the display polls (grid + live tiles + ETag).
 
-All endpoints are **implemented**:
-- `POST /api/tiles` — maps the body to `TileRequest` (`#[MapRequestPayload]`),
-  resolves content type, places via `TilePlacer`, computes expiry, persists.
-  201 (new) / 200 (updated) with the resolved position; 409 when full; 422 on bad
-  size/content type. Re-posting an unchanged footprint keeps its position.
+All endpoints are **implemented**. The controller is thin — it maps HTTP to
+`App\Service\Layout\LayoutService`:
+- `POST /api/tiles` — `LayoutService::upsert(TileRequest, now)` resolves content
+  type, places via `TilePlacer`, computes expiry, persists, returns a
+  `TileUpsertResult`. Controller → 201 (new) / 200 (updated) with the resolved
+  position; 409 (`NoSpaceException`) when full; 422 (`UnknownContentTypeException`)
+  on bad content type. Re-posting an unchanged footprint keeps its position.
 - `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository`.
 - `GET /api/layout` — `{grid, tiles}` snapshot; sets a body-hash ETag and returns
   304 via `isNotModified`.
