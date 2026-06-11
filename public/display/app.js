@@ -36,7 +36,8 @@ function renderContent(content) {
         case 'html': {
             const el = document.createElement('div');
             el.className = 'html';
-            el.innerHTML = content.html ?? ''; // trusted callers only
+            // Canonical field is `html`; accept `src` as a lenient fallback.
+            el.innerHTML = content.html ?? content.src ?? ''; // trusted callers only
             return el;
         }
         case 'text': {

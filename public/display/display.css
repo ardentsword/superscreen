@@ -28,6 +28,7 @@ html, body {
     grid-row: var(--y) / span var(--h);
     overflow: hidden;
     border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
     background: #111;
     color: #eee;
     font-family: ui-sans-serif, system-ui, sans-serif;
