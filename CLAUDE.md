@@ -85,9 +85,11 @@ owns the array↔DTO mapping.**
 - `DELETE /api/tiles/{id}` — remove a tile.
 - `GET /api/layout` — the snapshot the display polls (grid + live tiles + ETag).
 
-**Currently all handlers return `501 Not Implemented`** — interface only.
-Request-payload binding (likely `#[MapRequestPayload]`, needs `symfony/serializer`)
-and validation are not wired yet.
+Status: `POST /api/tiles` maps the JSON body to `TileRequest` via
+`#[MapRequestPayload]` (Serializer installed) — it echoes the parsed payload but
+does **not** persist yet (placement + storage still TODO). Invalid enum/type
+yields a 422 automatically. `DELETE` and `GET /api/layout` still return
+`501 Not Implemented`. No explicit validation constraints added yet.
 
 ## Conventions & gotchas
 
