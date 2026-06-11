@@ -62,6 +62,28 @@ function applyPosition(el, position) {
     el.style.setProperty('--h', position.h);
 }
 
+// Base for tile mutations, derived from the layout URL ("/api/layout" -> "/api/tiles").
+const tilesUrl = config.layoutUrl.replace(/layout$/, 'tiles');
+
+/** A small delete cross in the tile's corner for manual removal. */
+function makeDeleteButton(id) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tile-delete';
+    button.textContent = '×'; // ×
+    button.title = 'Delete tile';
+    button.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        try {
+            await fetch(`${tilesUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        } catch {
+            // ignore; the next poll reflects the real state anyway
+        }
+        poll(); // refresh now instead of waiting for the next tick
+    });
+    return button;
+}
+
 function reconcile(layout) {
     screen.style.setProperty('--cols', layout.grid.cols);
     screen.style.setProperty('--rows', layout.grid.rows);
@@ -78,17 +100,21 @@ function reconcile(layout) {
             const el = document.createElement('div');
             el.className = 'tile';
             el.dataset.id = tile.id;
-            el.appendChild(renderContent(tile.content));
+            const contentEl = renderContent(tile.content);
+            el.append(contentEl, makeDeleteButton(tile.id));
             applyPosition(el, tile.position);
             screen.appendChild(el);
-            nodes.set(tile.id, { el, contentKey });
+            nodes.set(tile.id, { el, contentEl, contentKey });
             continue;
         }
 
         // Only rebuild content when it actually changed; otherwise leave the
-        // node alone (keeps video playing, iframe loaded).
+        // node alone (keeps video playing, iframe loaded). The delete button is
+        // a separate child, so it survives content swaps.
         if (existing.contentKey !== contentKey) {
-            existing.el.replaceChildren(renderContent(tile.content));
+            const contentEl = renderContent(tile.content);
+            existing.contentEl.replaceWith(contentEl);
+            existing.contentEl = contentEl;
             existing.contentKey = contentKey;
         }
         applyPosition(existing.el, tile.position);
