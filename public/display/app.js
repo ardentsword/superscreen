@@ -84,6 +84,36 @@ function makeDeleteButton(id) {
     return button;
 }
 
+// Monochrome clock glyph (matches the × button's white-on-dark style).
+const CLOCK_SVG = '<svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+function formatRemaining(seconds) {
+    if (seconds <= 0) return 'expiring…';
+    if (seconds < 60) return `expires in ${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    if (m < 60) return `expires in ${m}m ${seconds % 60}s`;
+    return `expires in ${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+/** A status badge next to the delete cross: clock if the tile has a timeout, ∞ if not. */
+function makeStatusBadge() {
+    const badge = document.createElement('span');
+    badge.className = 'tile-status';
+    return badge;
+}
+
+function applyStatus(badge, tile) {
+    const timed = tile.expires_at != null;
+    const mode = timed ? 'timed' : 'permanent';
+    if (badge.dataset.mode !== mode) {
+        badge.dataset.mode = mode;
+        badge.innerHTML = timed ? CLOCK_SVG : '∞';
+    }
+    badge.title = timed
+        ? formatRemaining(tile.expires_at - Math.floor(Date.now() / 1000))
+        : 'No timeout';
+}
+
 function reconcile(layout) {
     screen.style.setProperty('--cols', layout.grid.cols);
     screen.style.setProperty('--rows', layout.grid.rows);
@@ -101,22 +131,25 @@ function reconcile(layout) {
             el.className = 'tile';
             el.dataset.id = tile.id;
             const contentEl = renderContent(tile.content);
-            el.append(contentEl, makeDeleteButton(tile.id));
+            const statusEl = makeStatusBadge();
+            applyStatus(statusEl, tile);
+            el.append(contentEl, makeDeleteButton(tile.id), statusEl);
             applyPosition(el, tile.position);
             screen.appendChild(el);
-            nodes.set(tile.id, { el, contentEl, contentKey });
+            nodes.set(tile.id, { el, contentEl, statusEl, contentKey });
             continue;
         }
 
         // Only rebuild content when it actually changed; otherwise leave the
-        // node alone (keeps video playing, iframe loaded). The delete button is
-        // a separate child, so it survives content swaps.
+        // node alone (keeps video playing, iframe loaded). The delete button and
+        // status badge are separate children, so they survive content swaps.
         if (existing.contentKey !== contentKey) {
             const contentEl = renderContent(tile.content);
             existing.contentEl.replaceWith(contentEl);
             existing.contentEl = contentEl;
             existing.contentKey = contentKey;
         }
+        applyStatus(existing.statusEl, tile); // refresh timeout indicator
         applyPosition(existing.el, tile.position);
     }
 

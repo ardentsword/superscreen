@@ -97,6 +97,7 @@ final class TileApiController extends AbstractController
                         'w' => $tile->getPosition()->w,
                         'h' => $tile->getPosition()->h,
                     ],
+                    'expires_at' => $tile->getExpiresAt(),
                 ],
                 $layout->liveTiles(time()),
             ),
