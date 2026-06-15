@@ -104,7 +104,12 @@ final class TileApiController extends AbstractController
 
         $response = new JsonResponse($payload);
         $response->setEtag(hash('xxh128', (string) json_encode($payload, JSON_THROW_ON_ERROR)));
-        $response->setPublic();
+
+        // Live, per-state endpoint: it must NOT be stored by any (shared) cache,
+        // or the display flickers between a cached snapshot and the live layout.
+        // The display still revalidates via If-None-Match against the ETag, so
+        // 304s keep working — we just forbid storing the body.
+        $response->headers->set('Cache-Control', 'no-store');
 
         // Returns the response with a 304 status when If-None-Match matches.
         $response->isNotModified($request);
