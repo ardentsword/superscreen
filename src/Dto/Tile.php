@@ -12,18 +12,18 @@ use App\Tile\Position;
  * backend from an API-facing tile (size → footprint, then placement).
  * See docs/README.md §4.2. Serialization lives in TileRepository.
  */
-class Tile
+readonly class Tile
 {
     /**
      * @param array<string, mixed> $content type-specific payload (e.g. `src`, `text`, `html`)
      */
     public function __construct(
-        private readonly string $id,
-        private readonly ContentType $contentType,
-        private readonly array $content,
-        private readonly Position $position,
-        private readonly int $createdAt,
-        private readonly ?int $expiresAt = null,
+        private string $id,
+        private ContentType $contentType,
+        private array $content,
+        private Position $position,
+        private int $createdAt,
+        private ?int $expiresAt = null,
     ) {}
 
     public function getId(): string
