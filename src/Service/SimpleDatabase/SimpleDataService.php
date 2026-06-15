@@ -21,7 +21,10 @@ class SimpleDataService
     private ?array $dataCache = null;
 
     public function __construct(
-        #[Autowire('%kernel.project_dir%/var/state.json')]
+        // Lives in a directory (not a bare file) so it can be a Deployer
+        // shared_dir: the atomic temp-file + rename happens inside the shared
+        // directory, which a shared *file* symlink would break. See deploy/symfony.php.
+        #[Autowire('%kernel.project_dir%/var/data/state.json')]
         private readonly string $dataFile,
     ) {}
 

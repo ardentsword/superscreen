@@ -8,10 +8,13 @@ require_once 'deploy/git.php';
 // [Optional] Allocate tty for git clone. Default value is false.
 set('git_tty', true);
 
-// Shared across releases: logs, the live layout state (JSON store), and the
-// uncommitted local env. var/state.json persists the layout over deploys.
-set('shared_dirs', ['var/log']);
-set('shared_files', ['.env.local', 'var/state.json']);
+// Shared across releases: logs, the JSON store directory, and the uncommitted
+// local env. The store is shared as a *directory* (var/data), not a file: the
+// app writes state.json via temp-file + rename, and renaming over a shared-file
+// symlink would replace the symlink (losing the link to shared/). Sharing the
+// directory keeps the data in shared/ across deploys.
+set('shared_dirs', ['var/log', 'var/data']);
+set('shared_files', ['.env.local']);
 
 set('allow_anonymous_stats', false);
 

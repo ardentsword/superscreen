@@ -13,7 +13,7 @@ a CSS-grid layout and polls the API to refresh within a few seconds.
   8.4 idioms — `readonly`, enums, typed constants, constructor promotion).
 - **Symfony 8.1** (minimal `skeleton`, not `webapp`).
 - **PHPUnit** via `symfony/test-pack`.
-- **Storage: a single JSON file** (`var/state.json`) — deliberately no database.
+- **Storage: a single JSON file** (`var/data/state.json`) — deliberately no database.
   See the storage section below.
 
 ## Commands
@@ -75,7 +75,7 @@ service plus typed repositories. **DTOs are plain data + getters; the repository
 owns the array↔DTO mapping.**
 
 - `App\Service\SimpleDatabase\SimpleDataService` — JSON file key→array store,
-  in-memory cache, `#[Autowire]`'d file path (`%kernel.project_dir%/var/state.json`).
+  in-memory cache, `#[Autowire]`'d file path (`%kernel.project_dir%/var/data/state.json`).
   This project added `remove()` and an **atomic write** (temp file + rename).
 - `App\Service\SimpleDatabase\TileRepository` — typed repository over it. Tiles
   keyed `tile.<id>`. API: `store`, `delete`, `find`, `findLive(int $now)`
@@ -125,7 +125,7 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
 - **`config/services.yaml` excludes `src/Dto/` and `src/Tile/` from autowiring**
   (they're DTOs / value objects / enums, not services). New non-service value
   types in those dirs are fine; new services elsewhere autowire automatically.
-- Runtime state (`var/`, `var/state.json`) and `vendor/` are gitignored.
+- Runtime state (`var/`, `var/data/state.json`) and `vendor/` are gitignored.
 - Tests use a plain `TestCase` with a temp state file (no kernel) — fast.
 - Never add the Claude co-authored-by signature to commits (global rule).
 - Commit style: imperative subject + a short body explaining the why.
@@ -145,5 +145,7 @@ Auto-deploy on push to `master` via **Gitea Actions** (`.gitea/workflows/deploy.
 a `test` job (PHPUnit) gates a `deploy` job that runs **PHP Deployer**
 (`deploy.php` + `deploy/symfony.php`) over SSH. Target: `www-data@oxybelis.loken.nl`,
 `/var/www/superscreen.oxybelis.loken.nl`, URL `superscreen.oxybelis.loken.nl`.
-No DB / no asset build; `var/state.json` and `.env.local` are `shared_files` so the
-live layout survives releases. Requires the `DEPLOY_SSH_KEY` repo secret.
+No DB / no asset build; `var/data` is a `shared_dir` (and `.env.local` a
+`shared_file`) so the live layout survives releases — shared as a *directory*
+because the atomic temp+rename write would otherwise replace a shared-file
+symlink. Requires the `DEPLOY_SSH_KEY` repo secret.

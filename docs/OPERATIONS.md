@@ -133,7 +133,8 @@ Deployer does **not** touch Tier 1 or Tier 2 — it only deploys the app and
 restarts the already-installed service.
 
 **Implemented:** `deploy.php` + `deploy/symfony.php` (Deployer recipe, no DB / no
-asset build; `var/state.json` + `.env.local` as `shared_files`), driven by
+asset build; `var/data` as a `shared_dir` for the JSON store + `.env.local` as a
+`shared_file`), driven by
 `.gitea/workflows/deploy.yml` — a PHPUnit `test` job gates a `deploy` job on push
 to `master`. Target `www-data@oxybelis.loken.nl:/var/www/superscreen.oxybelis.loken.nl`.
 Needs a `DEPLOY_SSH_KEY` repo secret (its public half in the server user's
