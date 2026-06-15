@@ -62,20 +62,23 @@ is decided by hashing each tile's content (or a per-tile version from the
 backend). This is what lets the single-snapshot model (see overview) update one
 expiring tile without disturbing the rest.
 
-## 5. Content renderers
+## 5. Content renderers (server-side Twig)
 
-A small dispatch table keyed on `content.type`, each entry producing a DOM node:
+Content markup is rendered **server-side**, one Twig template per content type in
+`templates/tile/<type>.html.twig` (`App\Service\Display\TileRenderer`). The layout
+response carries the rendered HTML per tile (`tile.html`), and the display simply
+injects it into a `.tile-content` wrapper — there is no per-type logic in JS.
 
-| type     | node                                          | notes                              |
+| type     | template output                               | notes                              |
 |----------|-----------------------------------------------|------------------------------------|
-| `text`   | `<div>`                                       | scaled typography, optional styles |
+| `text`   | `<div class="text">`                          | **auto-escaped** by Twig           |
 | `image`  | `<img>`                                       | `object-fit: cover`                |
 | `video`  | `<video muted autoplay loop playsinline>`     | muted is mandatory for autoplay    |
 | `iframe` | `<iframe sandbox>`                            | some sites refuse to embed         |
-| `html`   | container + `innerHTML`                       | trusted callers only               |
+| `html`   | `<div class="html">…|raw</div>`               | trusted callers only; `src` accepted as a fallback for `html` |
 
-Adding a type later is one new entry. An **unknown type renders a visible
-placeholder**, never a blank cell — so misconfiguration is obvious, not invisible.
+Adding a type is one new template. Because `ContentType` is a closed enum
+(validated on write), there's no "unknown type" to handle at render time.
 
 ## 6. Polling loop & resilience
 

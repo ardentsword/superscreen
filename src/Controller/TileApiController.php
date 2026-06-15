@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Dto\Tile;
 use App\Dto\TileRequest;
+use App\Service\Display\TileRenderer;
 use App\Service\Layout\LayoutService;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
@@ -81,6 +82,7 @@ final class TileApiController extends AbstractController
     public function layout(
         Request $request,
         LayoutService $layout,
+        TileRenderer $renderer,
         #[Autowire('%app.grid.cols%')] int $cols,
         #[Autowire('%app.grid.rows%')] int $rows,
         #[Autowire('%app.grid.gap%')] int $gap,
@@ -90,7 +92,7 @@ final class TileApiController extends AbstractController
             'tiles' => array_map(
                 static fn (Tile $tile): array => [
                     'id' => $tile->getId(),
-                    'content' => ['type' => $tile->getContentType()->value, ...$tile->getContent()],
+                    'html' => $renderer->renderContent($tile),
                     'position' => [
                         'x' => $tile->getPosition()->x,
                         'y' => $tile->getPosition()->y,

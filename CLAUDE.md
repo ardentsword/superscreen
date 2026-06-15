@@ -114,8 +114,11 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
   `If-None-Match`, ignores 304, keeps the last layout on error.
 - **Keyed reconciliation by tile id**: unchanged tiles' DOM is left intact (video
   keeps playing, iframe stays loaded); only changed content is rebuilt; position
-  is set via CSS grid vars. Renderers per `ContentType`; unknown type shows a
-  visible red placeholder.
+  is set via CSS grid vars.
+- **Content is rendered server-side** by `App\Service\Display\TileRenderer` —
+  one Twig template per `ContentType` in `templates/tile/<type>.html.twig`. The
+  layout response carries `tile.html`; the display injects it (no per-type JS).
+  `text` is Twig-auto-escaped; `html` uses `|raw` (accepts `src` as a fallback).
 - `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
 
 ## Conventions & gotchas

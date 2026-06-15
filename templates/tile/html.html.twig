@@ -1,0 +1,2 @@
+{# Canonical field is `html`; accept `src` as a lenient fallback. Trusted callers only. #}
+<div class="html">{{ (html is defined ? html : src|default(''))|raw }}</div>

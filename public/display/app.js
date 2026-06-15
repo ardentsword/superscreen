@@ -9,50 +9,12 @@ const screen = document.getElementById('screen');
 const nodes = new Map();
 let etag = null;
 
-/** Build a DOM node for a content payload ({ type, ...fields }). */
-function renderContent(content) {
-    switch (content.type) {
-        case 'image': {
-            const el = document.createElement('img');
-            el.src = content.src ?? '';
-            el.alt = '';
-            return el;
-        }
-        case 'video': {
-            const el = document.createElement('video');
-            el.src = content.src ?? '';
-            el.muted = true;        // required for autoplay
-            el.autoplay = true;
-            el.loop = true;
-            el.playsInline = true;
-            return el;
-        }
-        case 'iframe': {
-            const el = document.createElement('iframe');
-            el.src = content.src ?? '';
-            el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-            return el;
-        }
-        case 'html': {
-            const el = document.createElement('div');
-            el.className = 'html';
-            // Canonical field is `html`; accept `src` as a lenient fallback.
-            el.innerHTML = content.html ?? content.src ?? ''; // trusted callers only
-            return el;
-        }
-        case 'text': {
-            const el = document.createElement('div');
-            el.className = 'text';
-            el.textContent = content.text ?? '';
-            return el;
-        }
-        default: {
-            const el = document.createElement('div');
-            el.className = 'unknown';
-            el.textContent = `Unknown content type: ${content.type}`;
-            return el;
-        }
-    }
+/** A wrapper holding the server-rendered content HTML (Twig, per type). */
+function makeContentEl(html) {
+    const el = document.createElement('div');
+    el.className = 'tile-content';
+    el.innerHTML = html; // rendered + escaped server-side (see templates/tile/)
+    return el;
 }
 
 function applyPosition(el, position) {
@@ -142,14 +104,14 @@ function reconcile(layout) {
 
     for (const tile of layout.tiles) {
         seen.add(tile.id);
-        const contentKey = JSON.stringify(tile.content);
+        const contentKey = tile.html; // server-rendered HTML is the content signature
         const existing = nodes.get(tile.id);
 
         if (!existing) {
             const el = document.createElement('div');
             el.className = 'tile';
             el.dataset.id = tile.id;
-            const contentEl = renderContent(tile.content);
+            const contentEl = makeContentEl(tile.html);
             const statusEl = makeStatusBadge();
             applyStatus(statusEl, tile);
             el.append(contentEl, makeDeleteButton(tile.id), statusEl);
@@ -159,13 +121,11 @@ function reconcile(layout) {
             continue;
         }
 
-        // Only rebuild content when it actually changed; otherwise leave the
-        // node alone (keeps video playing, iframe loaded). The delete button and
-        // status badge are separate children, so they survive content swaps.
+        // Only rebuild content when the rendered HTML actually changed; otherwise
+        // leave it alone (keeps video playing, iframe loaded). The delete button
+        // and status badge are separate children, so they survive content swaps.
         if (existing.contentKey !== contentKey) {
-            const contentEl = renderContent(tile.content);
-            existing.contentEl.replaceWith(contentEl);
-            existing.contentEl = contentEl;
+            existing.contentEl.innerHTML = tile.html;
             existing.contentKey = contentKey;
         }
         applyStatus(existing.statusEl, tile); // refresh timeout indicator

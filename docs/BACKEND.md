@@ -59,12 +59,16 @@ caller.
 {
   "grid": { "cols": 4, "rows": 3, "gap": 8 },
   "tiles": [
-    { "id": "weather", "content": { "type": "iframe", "src": "..." },
-      "position": { "x": 0, "y": 0, "w": 2, "h": 1 } }
+    { "id": "weather",
+      "html": "<iframe src=\"...\" sandbox=\"...\"></iframe>",
+      "position": { "x": 0, "y": 0, "w": 2, "h": 1 },
+      "created_at": 1700000000, "expires_at": 1700003600 }
   ]
 }
 ```
-This is the **single snapshot** the display polls — one request returns every
+Content is **rendered server-side** (one Twig template per type — see
+`docs/FRONTEND.md` §5), so each tile carries ready-to-inject `html` rather than a
+structured content object. This is the **single snapshot** the display polls — one request returns every
 live tile (see "One snapshot, per-tile lifetimes" in the overview). It exposes the
 **internal** model (resolved `position` with `x`/`y`/`w`/`h`), because it feeds our
 own display, not external callers.
