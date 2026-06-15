@@ -7,8 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    app.grid.cols: 6
-    app.grid.rows: 4
+    app.grid.cols: 8
+    app.grid.rows: 5
     app.grid.gap: 8
     app.poll_interval: 3 # seconds between display polls
 

@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - master
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        container:
+            image: php:8.4-cli
+        steps:
+            -   name: Setup & checkout
+                run: |
+                    apt-get update && apt-get install -y git unzip curl
+                    git config --global --add safe.directory "$GITHUB_WORKSPACE"
+                    git clone --branch ${{ github.ref_name }} --single-branch https://token:${{ github.token }}@git.loken.nl/${{ github.repository }}.git .
+                    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+            -   name: Install dependencies
+                run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+
+            -   name: Tests
+                run: php bin/phpunit
+
+    deploy:
+        needs: test
+        runs-on: ubuntu-latest
+        container:
+            image: deployphp/deployer:latest
+        steps:
+            -   name: Checkout
+                run: |
+                    git config --global --add safe.directory "$GITHUB_WORKSPACE"
+                    git clone --branch ${{ github.ref_name }} --single-branch https://token:${{ github.token }}@git.loken.nl/${{ github.repository }}.git .
+
+            -   name: Setup SSH
+                run: |
+                    mkdir -p ~/.ssh
+                    echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+                    chmod 600 ~/.ssh/id_rsa
+                    ssh-keyscan -H oxybelis.loken.nl >> ~/.ssh/known_hosts
+                    printf "Host oxybelis.loken.nl\n  User www-data\n  IdentityFile ~/.ssh/id_rsa\n  IdentitiesOnly yes\n" > ~/.ssh/config
+                    chmod 600 ~/.ssh/config
+
+            -   name: Deploy
+                run: /bin/dep deploy --branch=${{ github.ref_name }} -vvv

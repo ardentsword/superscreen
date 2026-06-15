@@ -136,4 +136,14 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
    content fields per type).
 2. Optional `X-Api-Key` auth on writes (`docs/BACKEND.md §8`).
 3. Display polish: enter/exit transitions, nightly auto-reload, stale indicator.
-4. Pi deployment (`docs/OPERATIONS.md`).
+4. Pi-side ops (`docs/OPERATIONS.md`): bootstrap, system config (`sync.sh` for
+   systemd/kiosk), kiosk hardening, watchdog.
+
+## Deployment (app tier)
+
+Auto-deploy on push to `master` via **Gitea Actions** (`.gitea/workflows/deploy.yml`):
+a `test` job (PHPUnit) gates a `deploy` job that runs **PHP Deployer**
+(`deploy.php` + `deploy/symfony.php`) over SSH. Target: `www-data@oxybelis.loken.nl`,
+`/var/www/superscreen.oxybelis.loken.nl`, URL `superscreen.oxybelis.loken.nl`.
+No DB / no asset build; `var/state.json` and `.env.local` are `shared_files` so the
+live layout survives releases. Requires the `DEPLOY_SSH_KEY` repo secret.
