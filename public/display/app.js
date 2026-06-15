@@ -84,9 +84,6 @@ function makeDeleteButton(id) {
     return button;
 }
 
-// Monochrome clock glyph (matches the × button's white-on-dark style).
-const CLOCK_SVG = '<svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
-
 function formatRemaining(seconds) {
     if (seconds <= 0) return 'expiring…';
     if (seconds < 60) return `expires in ${seconds}s`;
@@ -95,7 +92,12 @@ function formatRemaining(seconds) {
     return `expires in ${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-/** A status badge next to the delete cross: clock if the tile has a timeout, ∞ if not. */
+/**
+ * A status badge next to the delete cross: a pie that "spins down" (full at
+ * creation, gone at expiry) for timed tiles, or ∞ for permanent ones. The
+ * depletion is a pure-CSS animation; we set its duration once and use a negative
+ * animation-delay so it resumes at the right point (even after a reload).
+ */
 function makeStatusBadge() {
     const badge = document.createElement('span');
     badge.className = 'tile-status';
@@ -104,11 +106,28 @@ function makeStatusBadge() {
 
 function applyStatus(badge, tile) {
     const timed = tile.expires_at != null;
-    const mode = timed ? 'timed' : 'permanent';
-    if (badge.dataset.mode !== mode) {
-        badge.dataset.mode = mode;
-        badge.innerHTML = timed ? CLOCK_SVG : '∞';
+    // A signature so we only (re)configure when the tile's lifetime changes —
+    // otherwise resetting the animation each poll would make it jump.
+    const sig = timed ? `${tile.created_at}:${tile.expires_at}` : 'permanent';
+
+    if (badge.dataset.sig !== sig) {
+        badge.dataset.sig = sig;
+        badge.dataset.mode = timed ? 'timed' : 'permanent';
+
+        if (timed) {
+            const total = Math.max(1, tile.expires_at - tile.created_at);
+            const elapsed = Math.max(0, Math.floor(Date.now() / 1000) - tile.created_at);
+            badge.textContent = '';
+            badge.style.animation = 'none';
+            void badge.offsetWidth; // reflow so a re-used node restarts cleanly
+            badge.style.animation = `tile-spin-down ${total}s linear forwards`;
+            badge.style.animationDelay = `-${elapsed}s`;
+        } else {
+            badge.style.animation = 'none';
+            badge.textContent = '∞';
+        }
     }
+
     badge.title = timed
         ? formatRemaining(tile.expires_at - Math.floor(Date.now() / 1000))
         : 'No timeout';

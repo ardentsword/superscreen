@@ -71,7 +71,14 @@ html, body {
     background: #c0392b;
 }
 
-/* Timeout indicator, same style as the cross, sitting just right of it. */
+/* Timeout indicator, same shape/size/position style as the cross, just right
+   of it. Timed tiles show a pie that spins down to empty; permanent tiles ∞. */
+@property --pie {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 360deg;
+}
+
 .tile > .tile-status {
     position: absolute;
     top: 6px;
@@ -83,11 +90,25 @@ html, body {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
     color: #fff;
     font-size: 1rem;
     line-height: 1;
-    opacity: 0.6;
+    opacity: 0.7;
+}
+
+/* Permanent: dark disc with the ∞ glyph. */
+.tile-status[data-mode='permanent'] {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* Timed: white pie over a dark remainder; --pie shrinks 360deg -> 0deg. */
+.tile-status[data-mode='timed'] {
+    background: conic-gradient(#fff var(--pie), rgba(0, 0, 0, 0.5) 0);
+}
+
+@keyframes tile-spin-down {
+    from { --pie: 360deg; }
+    to { --pie: 0deg; }
 }
 
 
