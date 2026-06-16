@@ -49,11 +49,11 @@ html, body {
     height: 100%;
 }
 
-/* Manual-delete cross in the top-left corner (overrides the fill rule above). */
+/* Manual-delete cross in the top-right corner (overrides the fill rule above). */
 .tile > .tile-delete {
     position: absolute;
     top: 6px;
-    left: 6px;
+    right: 6px;
     z-index: 2;
     width: 1.6rem;
     height: 1.6rem;
@@ -87,7 +87,7 @@ html, body {
 .tile > .tile-status {
     position: absolute;
     top: 6px;
-    left: calc(6px + 1.6rem + 6px);
+    right: calc(6px + 1.6rem + 6px);
     z-index: 2;
     width: 1.6rem;
     height: 1.6rem;
@@ -120,7 +120,7 @@ html, body {
 .tile > .tile-move {
     position: absolute;
     top: 6px;
-    left: calc(6px + 2 * (1.6rem + 6px));
+    right: calc(6px + 2 * (1.6rem + 6px));
     z-index: 2;
     width: 1.6rem;
     height: 1.6rem;

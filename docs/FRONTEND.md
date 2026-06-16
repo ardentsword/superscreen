@@ -108,7 +108,7 @@ nightly page reload**; because state is server-side (§6), the reload is seamles
 
 ## 8. Per-tile controls (operator affordances)
 
-Each tile carries three small circular corner buttons (top-left): a **delete ×**
+Each tile carries three small circular corner buttons (top-right): a **delete ×**
 (`DELETE /api/tiles/{id}`), the **timeout pie / ∞** indicator, and a **drag
 handle** (grip dots). Dragging the handle snaps the tile cell-to-cell (live
 preview via the CSS grid vars) and commits on drop via
