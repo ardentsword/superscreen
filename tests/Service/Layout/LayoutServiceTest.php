@@ -293,6 +293,24 @@ final class LayoutServiceTest extends TestCase
     }
 
     #[Test]
+    public function move_evicts_to_the_front_of_the_queue(): void
+    {
+        $service = $this->service(cols: 2, rows: 1); // two cells
+        $service->upsert($this->request('a', Size::Small), self::NOW);       // (0,0)
+        $service->upsert($this->request('b', Size::Small), self::NOW);       // (1,0)
+        $service->upsert($this->request('backlog', Size::Small), self::NOW); // no room -> queued earlier
+        self::assertNull($this->tiles->find('backlog'));
+
+        // Drag b onto a: a is bumped; only b's old cell frees. The bumped 'a'
+        // jumps ahead of the older 'backlog' and takes the freed cell.
+        $service->move('b', 0, 0, self::NOW + 10);
+
+        self::assertNotNull($this->tiles->find('a'));
+        self::assertNull($this->tiles->find('backlog'));
+        self::assertNotNull($this->queue->find('backlog'));
+    }
+
+    #[Test]
     public function upsert_stamps_the_api_key_and_it_survives_queue_eviction(): void
     {
         $service = $this->service(cols: 1, rows: 1);

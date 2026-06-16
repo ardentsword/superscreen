@@ -146,6 +146,11 @@ final readonly class LayoutService
 
         $target = new Position($x, $y, $w, $h);
 
+        // Evicted tiles go to the FRONT of the queue (an `enqueuedAt` below any
+        // existing entry), so a tile you bump off comes back before any backlog.
+        $queued = $this->queue->all();
+        $slot = ($queued === [] ? $now : $queued[0]->getEnqueuedAt()) - 1;
+
         // Evict any other live tiles overlapping the target to the queue.
         foreach ($this->tiles->findLive($now) as $other) {
             if ($other->getId() === $id || !self::overlaps($other->getPosition(), $target)) {
@@ -160,7 +165,7 @@ final readonly class LayoutService
                 content: $other->getContent(),
                 size: Size::fromDimensions($other->getPosition()->w, $other->getPosition()->h),
                 duration: $expiresAt === null ? null : max(0, $expiresAt - $now),
-                enqueuedAt: $now,
+                enqueuedAt: $slot--,
                 apiKeyId: $other->getApiKeyId(),
             ));
         }
