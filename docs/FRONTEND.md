@@ -22,6 +22,12 @@ The backend already serves these files; there is nothing to compile on the Pi an
 nothing to break on a toolchain mismatch. The render logic is small enough that a
 framework earns nothing.
 
+The code is split into small ES modules under `public/display/`, each owning one
+concern: `app.js` (entry point — wires the pieces and starts the loop), `config.js`,
+`api.js` (`Api`), `grid.js` (`Grid`), `drag.js` (`DragController`), `status.js`,
+`tile.js` (tile DOM), `controls.js`, `display.js` (`Display` — poll + reconcile),
+and `icons.js`. They import each other directly; the browser loads the graph.
+
 Upgrade path if it ever grows complex: a single-file `lit`/`preact` via ESM
 import — still no build. Not the starting point.
 

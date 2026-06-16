@@ -126,8 +126,14 @@ All endpoints are **implemented**. The controller is thin — it maps HTTP to
 ## Display (the renderer)
 
 `App\Controller\DisplayController` serves `GET /` → `templates/display/index.html.twig`.
-The page is a vanilla, no-build renderer (assets in `public/display/`):
-- `app.js` polls `GET /api/layout` every `%app.poll_interval%` s with
+The page is a vanilla, no-build renderer — **ES modules**, no bundler (assets in
+`public/display/`). `app.js` is a slim entry point that wires the modules and
+starts the loop; the pieces are split by concern: `config.js` (runtime config),
+`api.js` (`Api`: layout fetch + key-aware writes), `grid.js` (`Grid`: geometry +
+pointer→cell), `drag.js` (`DragController`), `status.js` (timeout pie), `tile.js`
+(tile DOM create/update + placeholder), `controls.js` (eye toggle), `display.js`
+(`Display`: poll loop + keyed reconcile), `icons.js` (SVG glyphs).
+- `Display` polls `GET /api/layout` every `%app.poll_interval%` s with
   `If-None-Match`, ignores 304, keeps the last layout on error.
 - **Keyed reconciliation by tile id**: unchanged tiles' DOM is left intact (video
   keeps playing, iframe stays loaded); only changed content is rebuilt; position
@@ -143,9 +149,9 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
   `PUT|DELETE …/reservation`). The buttons are **hidden until the tile is hovered**;
   the page-level eye toggle (`body.controls-hidden`) hides them outright. The
   **timeout pie** sits in the **top-right** corner, always visible (timed tiles
-  only — permanent tiles show no indicator). Reserved tiles get an amber outline;
-  held-but-empty reserved spots render as dashed placeholders with an un-pin
-  button. Writes go through `apiWrite` (sends the operator key, prompts on 401).
+  only — permanent tiles show no indicator). Reserved tiles are marked by their
+  lit pin; held-but-empty reserved spots render as dashed placeholders with an
+  un-pin button. Writes go through `Api` (sends the operator key, prompts on 401).
 - `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
 
 ## Conventions & gotchas
