@@ -20,7 +20,8 @@ a CSS-grid layout and polls the API to refresh within a few seconds.
 
 - Run tests: `php bin/phpunit`
 - Console: `php bin/console` (e.g. `debug:router`, `debug:container`, `router:match`)
-- Local server (manual): `php -S 127.0.0.1:8000 -t public public/index.php`
+- Local server (manual): `php -S 127.0.0.1:8000 -t public` (no router arg — using
+  `public/index.php` as the router mislabels static `.js`/`.css` as `text/html`)
   or `symfony serve`
 - Lint a file: `php -l <file>`
 
