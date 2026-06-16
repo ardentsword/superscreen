@@ -173,6 +173,37 @@ html, body {
     opacity: 1;
 }
 
+/* Page-level toggle to hide every per-tile button (clean wall view). */
+#controls-toggle {
+    position: fixed;
+    bottom: 8px;
+    left: 8px;
+    z-index: 50;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    cursor: pointer;
+    opacity: 0.3;
+}
+
+#controls-toggle:hover {
+    opacity: 1;
+}
+
+body.controls-hidden .tile-delete,
+body.controls-hidden .tile-move,
+body.controls-hidden .tile-pin,
+body.controls-hidden .reservation-placeholder .tile-delete {
+    display: none;
+}
+
 /* A reserved tile: lit pin + a subtle amber outline. */
 .tile.reserved {
     outline: 2px solid rgba(245, 158, 11, 0.75);
