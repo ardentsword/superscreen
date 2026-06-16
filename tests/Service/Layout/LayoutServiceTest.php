@@ -11,6 +11,7 @@ use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
 use App\Service\SimpleDatabase\QueueRepository;
+use App\Service\SimpleDatabase\ReservationRepository;
 use App\Service\SimpleDatabase\SimpleDataService;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\Size;
@@ -24,6 +25,7 @@ final class LayoutServiceTest extends TestCase
     private string $stateFile;
     private TileRepository $tiles;
     private QueueRepository $queue;
+    private ReservationRepository $reservations;
 
     protected function setUp(): void
     {
@@ -32,6 +34,7 @@ final class LayoutServiceTest extends TestCase
         $data = new SimpleDataService($this->stateFile);
         $this->tiles = new TileRepository($data);
         $this->queue = new QueueRepository($data);
+        $this->reservations = new ReservationRepository($data);
     }
 
     protected function tearDown(): void
@@ -47,14 +50,18 @@ final class LayoutServiceTest extends TestCase
         int $maxQueue = 50,
         int $maxContentBytes = 262144,
         int $maxIdLength = 128,
+        int $maxReservations = 30,
     ): LayoutService {
         return new LayoutService(
             $this->tiles,
             $this->queue,
+            $this->reservations,
             new TilePlacer($cols, $rows),
             $maxQueue,
             $maxContentBytes,
             $maxIdLength,
+            9,
+            $maxReservations,
         );
     }
 
@@ -176,6 +183,75 @@ final class LayoutServiceTest extends TestCase
             new TileRequest(content: ['type' => 'text', 'text' => 'x']),
             self::NOW,
         );
+    }
+
+    #[Test]
+    public function a_reserved_spot_is_held_for_its_id_across_delete_and_repost(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('a', Size::Medium), self::NOW); // (0,0) 2x1
+        $reserved = $service->reserve('a');
+        self::assertNotNull($reserved);
+
+        // Delete the tile — the spot stays held; no other tile may take it.
+        $service->delete('a', self::NOW);
+        self::assertNull($this->tiles->find('a'));
+        self::assertTrue($this->reservations->has('a'));
+
+        // A different tile is placed elsewhere, not on the held (0,0).
+        $service->upsert($this->request('b', Size::Medium), self::NOW);
+        self::assertNotSame([0, 0], [$this->tiles->find('b')->getPosition()->x, $this->tiles->find('b')->getPosition()->y]);
+
+        // Re-posting 'a' reclaims its reserved spot.
+        $service->upsert($this->request('a', Size::Medium), self::NOW);
+        self::assertSame([0, 0], [$this->tiles->find('a')->getPosition()->x, $this->tiles->find('a')->getPosition()->y]);
+    }
+
+    #[Test]
+    public function a_reserved_tile_cannot_be_evicted_by_a_move(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('a', Size::Small), self::NOW); // (0,0)
+        $service->upsert($this->request('b', Size::Small), self::NOW); // (1,0)
+        $service->reserve('a');
+
+        $this->expectException(TileLimitException::class);
+        $service->move('b', 0, 0, self::NOW); // would land on reserved 'a'
+    }
+
+    #[Test]
+    public function unreserve_frees_the_spot(): void
+    {
+        $service = $this->service(cols: 1, rows: 1);
+        $service->upsert($this->request('a', Size::Small), self::NOW);
+        $service->reserve('a');
+        $service->delete('a', self::NOW); // gone, but spot still held
+
+        // 'b' can't be placed while the only cell is reserved -> queued.
+        $service->upsert($this->request('b', Size::Small), self::NOW);
+        self::assertNull($this->tiles->find('b'));
+
+        // Releasing the reservation drains 'b' into the freed cell.
+        $service->unreserve('a', self::NOW);
+        self::assertNotNull($this->tiles->find('b'));
+    }
+
+    #[Test]
+    public function reserve_returns_null_for_an_unknown_tile(): void
+    {
+        self::assertNull($this->service()->reserve('nope'));
+    }
+
+    #[Test]
+    public function reservation_cap_is_enforced(): void
+    {
+        $service = $this->service(maxReservations: 1);
+        $service->upsert($this->request('a', Size::Small), self::NOW);
+        $service->upsert($this->request('b', Size::Small), self::NOW);
+        $service->reserve('a');
+
+        $this->expectException(TileLimitException::class);
+        $service->reserve('b');
     }
 
     #[Test]

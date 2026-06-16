@@ -149,6 +149,57 @@ html, body {
     cursor: grabbing;
 }
 
+/* Pin / reserve toggle, fourth in the corner row. */
+.tile > .tile-pin {
+    position: absolute;
+    top: 6px;
+    right: calc(6px + 3 * (1.6rem + 6px));
+    z-index: 2;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.tile > .tile-pin:hover {
+    opacity: 1;
+}
+
+/* A reserved tile: lit pin + a subtle amber outline. */
+.tile.reserved {
+    outline: 2px solid rgba(245, 158, 11, 0.75);
+    outline-offset: -2px;
+}
+
+.tile.reserved > .tile-pin {
+    background: #f59e0b;
+    opacity: 1;
+}
+
+/* Held (empty) reserved spot. */
+.tile.reservation-placeholder {
+    background: transparent;
+    border: 2px dashed rgba(245, 158, 11, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reservation-placeholder .placeholder-label {
+    color: rgba(245, 158, 11, 0.85);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 
 .tile img,
 .tile video {

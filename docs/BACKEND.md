@@ -35,6 +35,8 @@ returns. See [`FRONTEND.md`](FRONTEND.md).
 | `GET /api/layout`               | Current grid + live (non-expired) tiles. | none         |
 | `POST /api/tiles`               | Add or replace a tile (upsert by `id`).  | optional key |
 | `PATCH /api/tiles/{id}/position`| Move a placed tile to `{x, y}` (manual override). | optional key |
+| `PUT /api/tiles/{id}/reservation`   | Reserve (pin) the tile's current spot.   | optional key |
+| `DELETE /api/tiles/{id}/reservation`| Release the reservation (un-pin).        | optional key |
 | `DELETE /api/tiles/{id}`        | Remove a tile.                           | optional key |
 | `GET /`                         | The display page itself.                 | none         |
 
@@ -42,7 +44,18 @@ returns. See [`FRONTEND.md`](FRONTEND.md).
 automatic placement (used by drag-to-move on the display). It keeps the tile's
 footprint, evicts any tiles it lands on to the queue (preserving their remaining
 TTL) and drains them back into free space. 404 if no placed tile has that id; 422
-if the footprint wouldn't fit the grid at the target.
+if the footprint wouldn't fit the grid at the target; 409 if the target overlaps a
+**reserved** spot.
+
+**Reservations (pin).** `PUT /api/tiles/{id}/reservation` pins a placed tile's
+current rectangle (`ReservationRepository`, `reserve.<id>` in the shared store).
+The reservation is **persistent**: those cells are off-limits to every other tile
+(placement + queue-drain) and stay held even after the tile is deleted or expires —
+so re-posting that id **reclaims** the same spot, and a drag can't evict a reserved
+tile. `DELETE …/reservation` releases it. 404 if no placed tile has the id; 409 at
+the `app.limits.max_reservations` cap. The layout response carries a `reserved`
+flag per tile and a `reservations` list (so the display can show held-but-empty
+spots with an un-pin control). Deleting a tile **keeps** its reservation by design.
 
 ### `POST /api/tiles` — request body
 ```json

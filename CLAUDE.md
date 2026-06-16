@@ -106,8 +106,14 @@ All endpoints are **implemented**. The controller is thin — it maps HTTP to
   space. A queued tile's TTL starts when it's placed. An id is placed XOR queued.
 - `PATCH /api/tiles/{id}/position` — `LayoutService::move`: manual override of
   placement (drag-to-move). Keeps the footprint, evicts overlapped tiles to the
-  queue, re-drains. 404 unknown / 422 out-of-bounds.
-- `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository`.
+  queue, re-drains. 404 unknown / 422 out-of-bounds / 409 onto a reserved spot.
+- `PUT|DELETE /api/tiles/{id}/reservation` — pin/un-pin. **Persistent**
+  reservations (`ReservationRepository`, `reserve.<id>`): reserved cells are
+  off-limits to others and held across delete/expiry; re-posting the id reclaims
+  the spot; reserved tiles can't be evicted. Layout adds a `reserved` flag +
+  `reservations` list. Cap `app.limits.max_reservations`.
+- `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository` (keeps any
+  reservation for the id).
 - `GET /api/layout` — `{grid, tiles}` snapshot; sets a body-hash ETag and returns
   304 via `isNotModified`.
 - **Auth:** writes require an `X-Api-Key` header, enforced by `ApiKeySubscriber`
@@ -132,9 +138,11 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
   `text` is Twig-auto-escaped; `html` is rendered inside a **sandboxed
   `<iframe srcdoc>`** (`allow-scripts`, no `allow-same-origin`) so its JS is
   isolated to that tile's frame (accepts `src` as a fallback).
-- Per-tile corner controls: delete ×, timeout pie/∞, and a **drag handle**
-  (grip dots) that moves the tile via `PATCH …/position` (snaps to cells; polling
-  pauses mid-drag). Operator affordance, not for the touch-free wall.
+- Per-tile corner controls (top-right): delete ×, timeout pie/∞, a **drag handle**
+  (grip dots → `PATCH …/position`, snaps to cells, polling pauses mid-drag), and a
+  **pin** (📌 → `PUT|DELETE …/reservation`). Reserved tiles get an amber outline;
+  held-but-empty reserved spots render as dashed placeholders with an un-pin
+  button. Writes go through `apiWrite` (sends the operator key, prompts on 401).
 - `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
 
 ## Conventions & gotchas

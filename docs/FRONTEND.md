@@ -108,9 +108,12 @@ nightly page reload**; because state is server-side (§6), the reload is seamles
 
 ## 8. Per-tile controls (operator affordances)
 
-Each tile carries three small circular corner buttons (top-right): a **delete ×**
-(`DELETE /api/tiles/{id}`), the **timeout pie / ∞** indicator, and a **drag
-handle** (grip dots). Dragging the handle snaps the tile cell-to-cell (live
+Each tile carries small circular corner buttons (top-right): a **delete ×**
+(`DELETE /api/tiles/{id}`), the **timeout pie / ∞** indicator, a **drag
+handle** (grip dots), and a **pin** (`PUT|DELETE /api/tiles/{id}/reservation`) that
+reserves the tile's spot for its id. Reserved tiles get an amber outline; a
+reserved spot with no live tile renders as a dashed **placeholder** with an un-pin
+button (so a held spot can be freed even when empty). Dragging the handle snaps the tile cell-to-cell (live
 preview via the CSS grid vars) and commits on drop via
 `PATCH /api/tiles/{id}/position`; tiles it lands on are evicted to the queue
 server-side. **Polling is paused during a drag** so reconcile can't fight it, then

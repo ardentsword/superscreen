@@ -51,4 +51,20 @@ final class TileLimitException extends \RuntimeException
 
         return $e;
     }
+
+    public static function reservedConflict(): self
+    {
+        $e = new self('The target overlaps a reserved spot.');
+        $e->statusCode = 409;
+
+        return $e;
+    }
+
+    public static function reservationsFull(int $max): self
+    {
+        $e = new self(\sprintf('The maximum number of reservations (%d) is reached.', $max));
+        $e->statusCode = 409;
+
+        return $e;
+    }
 }

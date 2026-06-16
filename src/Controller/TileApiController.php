@@ -103,8 +103,44 @@ final class TileApiController extends AbstractController
     }
 
     /**
+     * Reserve (pin) a placed tile's current spot for its id. The spot is held
+     * even when the tile is gone, until released.
+     */
+    #[Route('/tiles/{id}/reservation', name: 'tiles_reserve', methods: ['PUT'])]
+    public function reserve(string $id, LayoutService $layout): JsonResponse
+    {
+        try {
+            $position = $layout->reserve($id);
+        } catch (TileLimitException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
+        }
+
+        if ($position === null) {
+            return $this->json(['error' => 'Tile not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json([
+            'id' => $id,
+            'reserved' => true,
+            'position' => ['x' => $position->x, 'y' => $position->y, 'w' => $position->w, 'h' => $position->h],
+        ]);
+    }
+
+    /**
+     * Release a reservation (un-pin). Idempotent.
+     */
+    #[Route('/tiles/{id}/reservation', name: 'tiles_unreserve', methods: ['DELETE'])]
+    public function unreserve(string $id, LayoutService $layout): JsonResponse
+    {
+        $layout->unreserve($id, time());
+
+        return $this->json(['id' => $id, 'reserved' => false]);
+    }
+
+    /**
      * Remove a tile by id (placed or queued). Idempotent. Frees space, so the
-     * queue is drained afterwards.
+     * queue is drained afterwards. A reservation for the id is kept (persistent);
+     * release it via DELETE /api/tiles/{id}/reservation.
      */
     #[Route('/tiles/{id}', name: 'tiles_delete', methods: ['DELETE'])]
     public function delete(string $id, LayoutService $layout): JsonResponse
@@ -128,6 +164,9 @@ final class TileApiController extends AbstractController
         #[Autowire('%app.grid.rows%')] int $rows,
         #[Autowire('%app.grid.gap%')] int $gap,
     ): JsonResponse {
+        $now = time();
+        $reservations = $layout->reservations(); // id => Position
+
         $payload = [
             'grid' => ['cols' => $cols, 'rows' => $rows, 'gap' => $gap],
             'tiles' => array_map(
@@ -142,8 +181,18 @@ final class TileApiController extends AbstractController
                     ],
                     'created_at' => $tile->getCreatedAt(),
                     'expires_at' => $tile->getExpiresAt(),
+                    'reserved' => isset($reservations[$tile->getId()]),
                 ],
-                $layout->liveTiles(time()),
+                $layout->liveTiles($now),
+            ),
+            // Held spots (so the display can render placeholders + an un-pin control).
+            'reservations' => array_map(
+                static fn (string $id, $p): array => [
+                    'id' => $id,
+                    'position' => ['x' => $p->x, 'y' => $p->y, 'w' => $p->w, 'h' => $p->h],
+                ],
+                array_keys($reservations),
+                array_values($reservations),
             ),
         ];
 

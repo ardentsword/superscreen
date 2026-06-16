@@ -11,6 +11,7 @@ use App\Dto\TileUpsertResult;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
 use App\Service\SimpleDatabase\QueueRepository;
+use App\Service\SimpleDatabase\ReservationRepository;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\ContentType;
 use App\Tile\Position;
@@ -29,11 +30,13 @@ final readonly class LayoutService
     public function __construct(
         private TileRepository $tiles,
         private QueueRepository $queue,
+        private ReservationRepository $reservations,
         private TilePlacer $placer,
         #[Autowire('%app.limits.max_queue%')] private int $maxQueue = 50,
         #[Autowire('%app.limits.max_content_bytes%')] private int $maxContentBytes = 262144,
         #[Autowire('%app.limits.max_id_length%')] private int $maxIdLength = 128,
         #[Autowire('%app.limits.max_tile_area%')] private int $maxTileArea = 9,
+        #[Autowire('%app.limits.max_reservations%')] private int $maxReservations = 30,
     ) {}
 
     /**
@@ -76,13 +79,7 @@ final readonly class LayoutService
         $existing = $this->tiles->find($id);
 
         try {
-            // Keep the current position on re-post when the footprint is
-            // unchanged, so the screen doesn't reshuffle; otherwise place fresh.
-            $position = ($existing !== null
-                && $existing->getPosition()->w === $w
-                && $existing->getPosition()->h === $h)
-                ? $existing->getPosition()
-                : $this->placer->place($w, $h, $this->occupiedExcept($id, $now));
+            $position = $this->resolvePosition($id, $w, $h, $existing, $now);
         } catch (NoSpaceException $e) {
             if ($e->permanent) {
                 throw $e; // larger than the grid — queuing would never help
@@ -150,6 +147,13 @@ final readonly class LayoutService
 
         $target = new Position($x, $y, $w, $h);
 
+        // Reserved spots (other than this tile's own) can't be overwritten.
+        foreach ($this->reservations->all() as $reservedId => $reservedPos) {
+            if ($reservedId !== $id && self::overlaps($reservedPos, $target)) {
+                throw TileLimitException::reservedConflict();
+            }
+        }
+
         // Evicted tiles go to the FRONT of the queue (an `enqueuedAt` below any
         // existing entry), so a tile you bump off comes back before any backlog.
         $queued = $this->queue->all();
@@ -186,10 +190,55 @@ final readonly class LayoutService
         );
         $this->tiles->store($moved);
 
+        // Moving a reserved tile re-pins it at the new spot.
+        if ($this->reservations->has($id)) {
+            $this->reservations->reserve($id, $target);
+        }
+
         // Re-place evicted tiles into the remaining free space.
         $this->drainQueue($now);
 
         return $moved;
+    }
+
+    /**
+     * Reserve the current position of a placed tile for its id (persists even
+     * when the tile is gone, until released). Returns the reserved rectangle, or
+     * null if no placed tile has that id.
+     *
+     * @throws TileLimitException when the reservation cap is reached
+     */
+    public function reserve(string $id): ?Position
+    {
+        $tile = $this->tiles->find($id);
+        if ($tile === null) {
+            return null;
+        }
+
+        if (!$this->reservations->has($id) && $this->reservations->count() >= $this->maxReservations) {
+            throw TileLimitException::reservationsFull($this->maxReservations);
+        }
+
+        $this->reservations->reserve($id, $tile->getPosition());
+
+        return $tile->getPosition();
+    }
+
+    /**
+     * Release a reservation, then drain the queue into the freed space.
+     */
+    public function unreserve(string $id, int $now): void
+    {
+        $this->reservations->release($id);
+        $this->drainQueue($now);
+    }
+
+    /**
+     * @return array<string, Position> id => reserved rectangle
+     */
+    public function reservations(): array
+    {
+        return $this->reservations->all();
     }
 
     /**
@@ -231,6 +280,10 @@ final readonly class LayoutService
             static fn (Tile $tile): Position => $tile->getPosition(),
             $this->tiles->findLive($now),
         );
+        // Held (possibly empty) reserved spots are off-limits to queued tiles.
+        foreach ($this->reservations->all() as $reservedPos) {
+            $occupied[] = $reservedPos;
+        }
 
         foreach ($queued as $entry) {
             try {
@@ -319,7 +372,64 @@ final readonly class LayoutService
                 $occupied[] = $live->getPosition();
             }
         }
+        // Reserved spots (other than this tile's own) are off-limits too.
+        foreach ($this->reservations->all() as $reservedId => $reservedPos) {
+            if ($reservedId !== $id) {
+                $occupied[] = $reservedPos;
+            }
+        }
 
         return $occupied;
+    }
+
+    /**
+     * Decide where to place a tile: reclaim a reservation if it matches, keep an
+     * unchanged footprint's current spot, otherwise first-fit.
+     *
+     * @throws NoSpaceException when there's no room (transient) or it can't fit
+     */
+    private function resolvePosition(string $id, int $w, int $h, ?Tile $existing, int $now): Position
+    {
+        $reserved = $this->reservations->find($id);
+        if ($reserved !== null) {
+            if ($reserved->w === $w && $reserved->h === $h) {
+                return $reserved; // reclaim the held spot
+            }
+
+            // Footprint changed: keep the top-left if the new size still fits and
+            // is free; otherwise the reservation no longer applies — release it.
+            $candidate = new Position($reserved->x, $reserved->y, $w, $h);
+            if ($this->placer->fitsInGrid($candidate->x, $candidate->y, $w, $h)
+                && $this->isFree($candidate, $this->occupiedExcept($id, $now))) {
+                $this->reservations->reserve($id, $candidate);
+
+                return $candidate;
+            }
+
+            $this->reservations->release($id);
+        }
+
+        // Keep the current position on re-post when the footprint is unchanged.
+        if ($existing !== null
+            && $existing->getPosition()->w === $w
+            && $existing->getPosition()->h === $h) {
+            return $existing->getPosition();
+        }
+
+        return $this->placer->place($w, $h, $this->occupiedExcept($id, $now));
+    }
+
+    /**
+     * @param list<Position> $occupied
+     */
+    private function isFree(Position $candidate, array $occupied): bool
+    {
+        foreach ($occupied as $other) {
+            if (self::overlaps($candidate, $other)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
