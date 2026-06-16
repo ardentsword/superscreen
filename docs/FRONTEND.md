@@ -108,13 +108,13 @@ nightly page reload**; because state is server-side (§6), the reload is seamles
 
 ## 8. Per-tile controls (operator affordances)
 
-Each tile carries small circular corner buttons (top-right): a **delete ×**
+Each tile carries small circular corner buttons (top-left): a **delete ×**
 (`DELETE /api/tiles/{id}`), a **drag handle** (grip dots), and a **pin**
 (`PUT|DELETE /api/tiles/{id}/reservation`) that reserves the tile's spot for its
 id. The buttons stay **hidden until the tile is hovered** (the wall stays clean;
 controls appear when an operator reaches for them); the page-level toggle (§ below)
-hides them outright, even on hover. The **timeout pie** sits in the very corner
-(top-right) and is always visible — it's an at-a-glance status, not a control;
+hides them outright, even on hover. The **timeout pie** sits in the **top-right**
+corner and is always visible — it's an at-a-glance status, not a control;
 permanent (no-`duration`) tiles show no indicator. Reserved tiles get an amber
 outline; a reserved spot with no live tile renders as a dashed **placeholder**
 with an un-pin button (so a held spot can be freed even when empty). Dragging the
