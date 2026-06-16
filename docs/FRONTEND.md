@@ -117,6 +117,12 @@ server-side. **Polling is paused during a drag** so reconcile can't fight it, th
 resumes (the server is authoritative). These are management affordances for an
 operator on a browser — not really meant for the touch-free wall display.
 
+When the write API is **key-protected**, these buttons send an `X-Api-Key` from
+`localStorage` (`superscreenKey`), kept out of the page source so the public
+kiosk never carries it. If a write is rejected (`401`) the page **prompts** for a
+key, stores it, and retries — so it only asks when auth is actually on (in open
+mode writes just succeed). Reads (the poll) never need a key.
+
 ## 9. Transitions
 
 Tile enter/exit via a CSS class + `transitionend`, kept short (~150–300 ms fade).

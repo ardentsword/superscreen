@@ -33,6 +33,46 @@ function applyPosition(el, position) {
 // Base for tile mutations, derived from the layout URL ("/api/layout" -> "/api/tiles").
 const tilesUrl = config.layoutUrl.replace(/layout$/, 'tiles');
 
+// Optional operator API key, kept in localStorage so the public page never
+// embeds it. Set it once with: localStorage.superscreenKey = '<token>'.
+const API_KEY_STORE = 'superscreenKey';
+const getKey = () => localStorage.getItem(API_KEY_STORE) ?? '';
+
+/**
+ * A write request that attaches the stored API key if present. If the server
+ * rejects it (401 — auth is on and we have no/stale key), prompt for a key,
+ * save it, and retry once. In open mode (no key required) writes just succeed,
+ * so this never prompts.
+ */
+async function apiWrite(url, options = {}) {
+    const headers = { ...(options.headers ?? {}) };
+    const key = getKey();
+    if (key) {
+        headers['X-Api-Key'] = key;
+    }
+
+    let response = await fetch(url, { ...options, cache: 'no-store', headers });
+    if (response.status !== 401) {
+        return response;
+    }
+
+    const entered = window.prompt('An API key is required for this action. Enter your API key:', '');
+    if (!entered) {
+        return response; // cancelled — leave it; the next poll re-syncs
+    }
+    localStorage.setItem(API_KEY_STORE, entered.trim());
+
+    response = await fetch(url, {
+        ...options,
+        cache: 'no-store',
+        headers: { ...(options.headers ?? {}), 'X-Api-Key': entered.trim() },
+    });
+    if (response.status === 401) {
+        window.alert('That API key was rejected.');
+    }
+    return response;
+}
+
 /** A small delete cross in the tile's corner for manual removal. */
 function makeDeleteButton(id) {
     const button = document.createElement('button');
@@ -43,7 +83,7 @@ function makeDeleteButton(id) {
     button.addEventListener('click', async (event) => {
         event.stopPropagation();
         try {
-            await fetch(`${tilesUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            await apiWrite(`${tilesUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' });
         } catch {
             // ignore; the next poll reflects the real state anyway
         }
@@ -125,7 +165,7 @@ async function onDragEnd() {
 
     if (col !== null) {
         try {
-            await fetch(`${tilesUrl}/${encodeURIComponent(id)}/position`, {
+            await apiWrite(`${tilesUrl}/${encodeURIComponent(id)}/position`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ x: col, y: row }),
