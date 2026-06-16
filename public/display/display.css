@@ -215,12 +215,7 @@ body.controls-hidden .reservation-placeholder .tile-delete {
     display: none;
 }
 
-/* A reserved tile: lit pin (on hover) + a subtle amber outline (always). */
-.tile.reserved {
-    outline: 2px solid rgba(245, 158, 11, 0.75);
-    outline-offset: -2px;
-}
-
+/* A reserved tile is marked only by its lit pin (on hover); no outline. */
 .tile.reserved:hover > .tile-pin {
     background: #f59e0b;
     opacity: 1;
