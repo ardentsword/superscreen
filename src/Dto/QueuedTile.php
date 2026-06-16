@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Dto;
 
 use App\Tile\ContentType;
-use App\Tile\Size;
 
 /**
  * A tile waiting for grid space. It holds everything needed to build the
@@ -21,7 +20,8 @@ final readonly class QueuedTile
         private string $id,
         private ContentType $contentType,
         private array $content,
-        private Size $size,
+        private int $width,
+        private int $height,
         private ?int $duration,
         private int $enqueuedAt,
         private ?string $apiKeyId = null,
@@ -45,9 +45,14 @@ final readonly class QueuedTile
         return $this->content;
     }
 
-    public function getSize(): Size
+    public function getWidth(): int
     {
-        return $this->size;
+        return $this->width;
+    }
+
+    public function getHeight(): int
+    {
+        return $this->height;
     }
 
     public function getDuration(): ?int

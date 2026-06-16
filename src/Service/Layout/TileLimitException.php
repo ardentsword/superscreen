@@ -43,4 +43,12 @@ final class TileLimitException extends \RuntimeException
 
         return $e;
     }
+
+    public static function badRequest(string $message): self
+    {
+        $e = new self($message);
+        $e->statusCode = 422;
+
+        return $e;
+    }
 }

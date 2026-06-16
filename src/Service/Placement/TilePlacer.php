@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Service\Placement;
 
 use App\Tile\Position;
-use App\Tile\Size;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Assigns a grid position to a tile of a given size using a first-fit scan
- * (top-to-bottom, then left-to-right) over the free cells. Throws when the grid
- * has no room. See docs/README.md §8 (placement strategy / "no room" policy).
+ * Assigns a grid position to a tile of a given footprint (w×h) using a first-fit
+ * scan (top-to-bottom, then left-to-right) over the free cells. Throws when the
+ * grid has no room. See docs/README.md §8 (placement strategy / "no room" policy).
  */
 final readonly class TilePlacer
 {
@@ -33,13 +32,10 @@ final readonly class TilePlacer
      *
      * @throws NoSpaceException when the tile does not fit anywhere
      */
-    public function place(Size $size, array $occupied): Position
+    public function place(int $w, int $h, array $occupied): Position
     {
-        $w = $size->width();
-        $h = $size->height();
-
         if ($w > $this->cols || $h > $this->rows) {
-            throw NoSpaceException::tooLarge($size, $w, $h, $this->cols, $this->rows);
+            throw NoSpaceException::tooLarge($w, $h, $this->cols, $this->rows);
         }
 
         $taken = $this->buildOccupancy($occupied);
@@ -52,7 +48,7 @@ final readonly class TilePlacer
             }
         }
 
-        throw NoSpaceException::noRoom($size, $w, $h, $this->cols, $this->rows);
+        throw NoSpaceException::noRoom($w, $h, $this->cols, $this->rows);
     }
 
     /**

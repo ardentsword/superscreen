@@ -15,6 +15,7 @@ parameters:
     app.limits.max_queue: 50          # max tiles waiting for space
     app.limits.max_content_bytes: 262144  # 256 KiB per tile content
     app.limits.max_id_length: 128
+    app.limits.max_tile_area: 9       # max W×H for a custom-sized tile (cells)
 
 services:
     # default configuration for services in *this* file

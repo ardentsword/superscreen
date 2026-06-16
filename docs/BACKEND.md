@@ -129,7 +129,11 @@ visual grammar of the screen is controlled centrally.
 
 ## 7. Validation rules
 
-- `size` must be one of `small` / `medium` / `large` / `xlarge`. Callers must **not** send
+- A request carries **exactly one** footprint source: a `size`
+  (`small`/`medium`/`large`/`xlarge`) **or** both `width` and `height` (explicit
+  cells, `1 ≤ each`, `width × height ≤ app.limits.max_tile_area`, default 9).
+  Sending both, neither, or only one of width/height → **422**.
+- Callers must **not** send
   `position`/`x`/`y`/`w`/`h`; reject or ignore such fields.
 - `content.type` must be one of the allowed types (see domain model).
 - Required payload fields per content type must be present (e.g. `src` for

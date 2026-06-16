@@ -7,29 +7,19 @@ namespace App\Tests\Service\Placement;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
 use App\Tile\Position;
-use App\Tile\Size;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class TilePlacerTest extends TestCase
 {
     #[Test]
-    public function places_each_size_top_left_on_an_empty_grid(): void
+    public function places_a_footprint_top_left_on_an_empty_grid(): void
     {
         $placer = new TilePlacer(cols: 6, rows: 4);
 
-        self::assertEquals(new Position(0, 0, 1, 1), $placer->place(Size::Small, []));
-        self::assertEquals(new Position(0, 0, 2, 1), $placer->place(Size::Medium, []));
-        self::assertEquals(new Position(0, 0, 2, 2), $placer->place(Size::Large, []));
-    }
-
-    #[Test]
-    public function places_an_extra_large_tile(): void
-    {
-        $placer = new TilePlacer(cols: 8, rows: 5);
-
-        self::assertEquals(new Position(0, 0, 3, 3), $placer->place(Size::ExtraLarge, []));
-        self::assertSame(Size::ExtraLarge, Size::fromDimensions(3, 3));
+        self::assertEquals(new Position(0, 0, 1, 1), $placer->place(1, 1, []));
+        self::assertEquals(new Position(0, 0, 2, 1), $placer->place(2, 1, []));
+        self::assertEquals(new Position(0, 0, 3, 3), $placer->place(3, 3, []));
     }
 
     #[Test]
@@ -37,7 +27,7 @@ final class TilePlacerTest extends TestCase
     {
         $placer = new TilePlacer(cols: 6, rows: 4);
 
-        $position = $placer->place(Size::Small, [new Position(0, 0, 1, 1)]);
+        $position = $placer->place(1, 1, [new Position(0, 0, 1, 1)]);
 
         self::assertEquals(new Position(1, 0, 1, 1), $position);
     }
@@ -48,7 +38,7 @@ final class TilePlacerTest extends TestCase
         $placer = new TilePlacer(cols: 6, rows: 4);
 
         // A single cell taken at (1,0) blocks a 2×2 at x=0 and x=1; first fit is x=2.
-        $position = $placer->place(Size::Large, [new Position(1, 0, 1, 1)]);
+        $position = $placer->place(2, 2, [new Position(1, 0, 1, 1)]);
 
         self::assertEquals(new Position(2, 0, 2, 2), $position);
     }
@@ -58,10 +48,10 @@ final class TilePlacerTest extends TestCase
     {
         $placer = new TilePlacer(cols: 2, rows: 2);
 
-        $first = $placer->place(Size::Medium, []);
+        $first = $placer->place(2, 1, []);
         self::assertEquals(new Position(0, 0, 2, 1), $first);
 
-        $second = $placer->place(Size::Medium, [$first]);
+        $second = $placer->place(2, 1, [$first]);
         self::assertEquals(new Position(0, 1, 2, 1), $second);
     }
 
@@ -72,7 +62,7 @@ final class TilePlacerTest extends TestCase
         $occupied = [new Position(0, 0, 2, 2)];
 
         $this->expectException(NoSpaceException::class);
-        $placer->place(Size::Small, $occupied);
+        $placer->place(1, 1, $occupied);
     }
 
     #[Test]
@@ -81,7 +71,7 @@ final class TilePlacerTest extends TestCase
         $placer = new TilePlacer(cols: 1, rows: 1);
 
         $this->expectException(NoSpaceException::class);
-        $placer->place(Size::Medium, []);
+        $placer->place(2, 1, []);
     }
 
     #[Test]
@@ -90,7 +80,7 @@ final class TilePlacerTest extends TestCase
         $placer = new TilePlacer(cols: 2, rows: 2);
 
         // A stale position outside the grid must not block placement.
-        $position = $placer->place(Size::Small, [new Position(5, 5, 1, 1)]);
+        $position = $placer->place(1, 1, [new Position(5, 5, 1, 1)]);
 
         self::assertEquals(new Position(0, 0, 1, 1), $position);
     }

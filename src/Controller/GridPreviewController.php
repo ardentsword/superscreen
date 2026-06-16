@@ -36,7 +36,7 @@ final class GridPreviewController extends AbstractController
             $size = $cycle[$i % \count($cycle)];
 
             try {
-                $position = $placer->place($size, $occupied);
+                $position = $placer->place($size->width(), $size->height(), $occupied);
             } catch (NoSpaceException) {
                 ++$misses; // this size no longer fits; stop once none do
                 continue;

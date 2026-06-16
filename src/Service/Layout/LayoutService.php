@@ -33,6 +33,7 @@ final readonly class LayoutService
         #[Autowire('%app.limits.max_queue%')] private int $maxQueue = 50,
         #[Autowire('%app.limits.max_content_bytes%')] private int $maxContentBytes = 262144,
         #[Autowire('%app.limits.max_id_length%')] private int $maxIdLength = 128,
+        #[Autowire('%app.limits.max_tile_area%')] private int $maxTileArea = 9,
     ) {}
 
     /**
@@ -66,20 +67,22 @@ final readonly class LayoutService
             throw TileLimitException::contentTooLarge($this->maxContentBytes);
         }
 
+        // Footprint comes from a named size OR explicit width/height (exclusive).
+        [$w, $h] = $this->resolveFootprint($request);
+
         // Drop expired tiles so storage can't grow unbounded over time.
         $this->tiles->pruneExpired($now);
 
         $existing = $this->tiles->find($id);
-        $size = $request->getSize();
 
         try {
             // Keep the current position on re-post when the footprint is
             // unchanged, so the screen doesn't reshuffle; otherwise place fresh.
             $position = ($existing !== null
-                && $existing->getPosition()->w === $size->width()
-                && $existing->getPosition()->h === $size->height())
+                && $existing->getPosition()->w === $w
+                && $existing->getPosition()->h === $h)
                 ? $existing->getPosition()
-                : $this->placer->place($size, $this->occupiedExcept($id, $now));
+                : $this->placer->place($w, $h, $this->occupiedExcept($id, $now));
         } catch (NoSpaceException $e) {
             if ($e->permanent) {
                 throw $e; // larger than the grid — queuing would never help
@@ -97,7 +100,8 @@ final readonly class LayoutService
                 id: $id,
                 contentType: $contentType,
                 content: $content,
-                size: $size,
+                width: $w,
+                height: $h,
                 duration: $request->getDuration(),
                 enqueuedAt: $this->queue->find($id)?->getEnqueuedAt() ?? $now,
                 apiKeyId: $apiKeyId,
@@ -163,7 +167,8 @@ final readonly class LayoutService
                 id: $other->getId(),
                 contentType: $other->getContentType(),
                 content: $other->getContent(),
-                size: Size::fromDimensions($other->getPosition()->w, $other->getPosition()->h),
+                width: $other->getPosition()->w,
+                height: $other->getPosition()->h,
                 duration: $expiresAt === null ? null : max(0, $expiresAt - $now),
                 enqueuedAt: $slot--,
                 apiKeyId: $other->getApiKeyId(),
@@ -229,7 +234,7 @@ final readonly class LayoutService
 
         foreach ($queued as $entry) {
             try {
-                $position = $this->placer->place($entry->getSize(), $occupied);
+                $position = $this->placer->place($entry->getWidth(), $entry->getHeight(), $occupied);
             } catch (NoSpaceException) {
                 continue; // doesn't fit now; leave it queued
             }
@@ -247,6 +252,40 @@ final readonly class LayoutService
             $this->queue->remove($entry->getId());
             $occupied[] = $position;
         }
+    }
+
+    /**
+     * Resolve the requested footprint from either a named size or explicit
+     * width/height (mutually exclusive).
+     *
+     * @return array{0: int, 1: int} [w, h]
+     *
+     * @throws TileLimitException on bad/conflicting/oversized dimensions
+     */
+    private function resolveFootprint(TileRequest $request): array
+    {
+        $size = $request->getSize();
+        $width = $request->getWidth();
+        $height = $request->getHeight();
+        $hasCustom = $width !== null || $height !== null;
+
+        if ($size !== null && $hasCustom) {
+            throw TileLimitException::badRequest('Provide either "size" or "width"/"height", not both.');
+        }
+        if ($size !== null) {
+            return [$size->width(), $size->height()];
+        }
+        if ($width === null || $height === null) {
+            throw TileLimitException::badRequest('Provide a "size", or both "width" and "height".');
+        }
+        if ($width < 1 || $height < 1) {
+            throw TileLimitException::badRequest('width and height must be at least 1.');
+        }
+        if ($width * $height > $this->maxTileArea) {
+            throw TileLimitException::badRequest(\sprintf('width × height must not exceed %d cells.', $this->maxTileArea));
+        }
+
+        return [$width, $height];
     }
 
     /**

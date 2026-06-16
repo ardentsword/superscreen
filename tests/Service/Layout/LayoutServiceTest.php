@@ -119,7 +119,7 @@ final class LayoutServiceTest extends TestCase
         $service = $this->service();
 
         $fromNull = $service->upsert(new TileRequest(['type' => 'text', 'text' => 'a'], Size::Small), self::NOW);
-        $fromEmpty = $service->upsert(new TileRequest(['type' => 'text', 'text' => 'b'], Size::Small, ''), self::NOW);
+        $fromEmpty = $service->upsert(new TileRequest(content: ['type' => 'text', 'text' => 'b'], size: Size::Small, id: ''), self::NOW);
 
         foreach ([$fromNull, $fromEmpty] as $result) {
             self::assertTrue($result->created);
@@ -130,6 +130,52 @@ final class LayoutServiceTest extends TestCase
 
         // Two generated ids must differ.
         self::assertNotSame($fromNull->tile->getId(), $fromEmpty->tile->getId());
+    }
+
+    #[Test]
+    public function custom_dimensions_place_with_those_dimensions(): void
+    {
+        $result = $this->service()->upsert(
+            new TileRequest(content: ['type' => 'text', 'text' => 'x'], width: 3, height: 2),
+            self::NOW,
+        );
+
+        self::assertSame(3, $result->tile->getPosition()->w);
+        self::assertSame(2, $result->tile->getPosition()->h);
+    }
+
+    #[Test]
+    public function size_and_dimensions_together_is_rejected(): void
+    {
+        $this->expectException(TileLimitException::class);
+        $this->service()->upsert(
+            new TileRequest(content: ['type' => 'text', 'text' => 'x'], size: Size::Small, width: 2, height: 2),
+            self::NOW,
+        );
+    }
+
+    #[Test]
+    public function dimensions_over_the_max_area_are_rejected(): void
+    {
+        try {
+            $this->service()->upsert(
+                new TileRequest(content: ['type' => 'text', 'text' => 'x'], width: 4, height: 3), // 12 > 9
+                self::NOW,
+            );
+            self::fail('expected TileLimitException');
+        } catch (TileLimitException $e) {
+            self::assertSame(422, $e->statusCode);
+        }
+    }
+
+    #[Test]
+    public function neither_size_nor_dimensions_is_rejected(): void
+    {
+        $this->expectException(TileLimitException::class);
+        $this->service()->upsert(
+            new TileRequest(content: ['type' => 'text', 'text' => 'x']),
+            self::NOW,
+        );
     }
 
     #[Test]

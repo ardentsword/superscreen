@@ -50,7 +50,8 @@ Settled decisions (don't silently reverse — confirm with the user first):
 Two tile representations; the backend translates between them.
 
 - **API-facing** (`App\Dto\TileRequest`): what callers POST — `id`, `content`
-  (`{type, ...payload}`), `size`, `duration`. **No position.**
+  (`{type, ...payload}`), a footprint (`size` XOR `width`+`height`, the latter
+  capped at `w*h ≤ app.limits.max_tile_area`=9), `duration`. **No position.**
 - **Internal** (`App\Dto\Tile`): fully resolved — `id`, `ContentType`, content
   payload, `Position` (x/y/w/h), `createdAt`, `expiresAt`.
 

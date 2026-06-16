@@ -84,7 +84,8 @@ readonly class QueueRepository
         return [
             'id' => $entry->getId(),
             'content' => ['type' => $entry->getContentType()->value, ...$entry->getContent()],
-            'size' => $entry->getSize()->value,
+            'w' => $entry->getWidth(),
+            'h' => $entry->getHeight(),
             'duration' => $entry->getDuration(),
             'enqueued_at' => $entry->getEnqueuedAt(),
             'api_key_id' => $entry->getApiKeyId(),
@@ -100,11 +101,22 @@ readonly class QueueRepository
         $type = ContentType::from((string) ($content['type'] ?? ''));
         unset($content['type']);
 
+        // Footprint is stored as w/h; fall back to a legacy `size` value.
+        if (isset($data['w'], $data['h'])) {
+            $w = (int) $data['w'];
+            $h = (int) $data['h'];
+        } else {
+            $footprint = Size::from((string) $data['size'])->footprint();
+            $w = $footprint['w'];
+            $h = $footprint['h'];
+        }
+
         return new QueuedTile(
             id: (string) $data['id'],
             contentType: $type,
             content: $content,
-            size: Size::from((string) $data['size']),
+            width: $w,
+            height: $h,
             duration: isset($data['duration']) ? (int) $data['duration'] : null,
             enqueuedAt: (int) $data['enqueued_at'],
             apiKeyId: isset($data['api_key_id']) ? (string) $data['api_key_id'] : null,
