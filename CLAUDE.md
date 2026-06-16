@@ -55,7 +55,7 @@ Two tile representations; the backend translates between them.
   payload, `Position` (x/y/w/h), `createdAt`, `expiresAt`.
 
 Supporting types in `App\Tile\`:
-- `Size` enum — `small` 1×1, `medium` **2×1**, `large` 2×2 (width × height);
+- `Size` enum — `small` 1×1, `medium` **2×1**, `large` 2×2, `xlarge` 3×3 (width × height);
   `footprint()`/`width()`/`height()`.
 - `ContentType` enum — `text`, `image`, `video`, `iframe`, `html`.
 - `Position` — pure value object (x, y, w, h).

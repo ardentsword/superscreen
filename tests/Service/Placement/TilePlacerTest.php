@@ -24,6 +24,15 @@ final class TilePlacerTest extends TestCase
     }
 
     #[Test]
+    public function places_an_extra_large_tile(): void
+    {
+        $placer = new TilePlacer(cols: 8, rows: 5);
+
+        self::assertEquals(new Position(0, 0, 3, 3), $placer->place(Size::ExtraLarge, []));
+        self::assertSame(Size::ExtraLarge, Size::fromDimensions(3, 3));
+    }
+
+    #[Test]
     public function first_fit_skips_occupied_cells_left_to_right(): void
     {
         $placer = new TilePlacer(cols: 6, rows: 4);

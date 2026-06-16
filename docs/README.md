@@ -88,7 +88,7 @@ owns placement.
 |------------|-------------------------------------|--------------------------------------------------------------|
 | `id`       | string \| null                      | Optional stable key. Re-posting the same id replaces it (upsert). When omitted/empty the backend generates one (truncated SHA-256 hex) and returns it. |
 | `content`  | object                              | `{ "type": ..., ... }` — see content types below.           |
-| `size`     | enum `small` \| `medium` \| `large` | A pre-split footprint; maps to a grid span (see below).      |
+| `size`     | enum `small` \| `medium` \| `large` \| `xlarge` | A pre-split footprint; maps to a grid span (see below).      |
 | `duration` | int \| null                         | Seconds the tile stays live. `null` = permanent.            |
 
 #### Size presets
@@ -99,6 +99,7 @@ Footprint is expressed as **width × height** in grid cells:
 | `small`  | 1 × 1             |
 | `medium` | 2 × 1             |
 | `large`  | 2 × 2             |
+| `xlarge` | 3 × 3             |
 
 This is the only sizing knob exposed externally. It keeps callers simple and lets
 the backend control the visual grammar of the screen. Position (`x`, `y`) is

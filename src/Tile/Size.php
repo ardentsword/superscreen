@@ -14,6 +14,7 @@ enum Size: string
     case Small = 'small';
     case Medium = 'medium';
     case Large = 'large';
+    case ExtraLarge = 'xlarge';
 
     /**
      * Footprint in grid cells.
@@ -26,6 +27,7 @@ enum Size: string
             self::Small => ['w' => 1, 'h' => 1],
             self::Medium => ['w' => 2, 'h' => 1],
             self::Large => ['w' => 2, 'h' => 2],
+            self::ExtraLarge => ['w' => 3, 'h' => 3],
         };
     }
 

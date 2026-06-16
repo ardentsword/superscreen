@@ -28,7 +28,7 @@ final class GridPreviewController extends AbstractController
     ): Response {
         // Fill the grid with a repeating cycle of sizes, positioned by the real
         // placer, so the page reflects actual footprints and placement.
-        $cycle = [Size::Large, Size::Medium, Size::Small];
+        $cycle = [Size::ExtraLarge, Size::Large, Size::Medium, Size::Small];
         $occupied = [];
         $tiles = [];
 
