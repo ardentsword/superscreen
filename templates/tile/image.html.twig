@@ -1,1 +1,12 @@
-<img src="{{ src|default('') }}" alt="">
+{# Optional `fit` controls how the image fills its tile. Friendly aliases map to
+   CSS object-fit values; anything unknown falls back to `cover`, so the value is
+   always one of a fixed safe set (no CSS injection). #}
+{%- set fits = {
+    'cover': 'cover', 'filled': 'cover',
+    'contain': 'contain', 'fit': 'contain',
+    'fill': 'fill', 'stretched': 'fill',
+    'none': 'none', 'clipped': 'none',
+    'scale-down': 'scale-down',
+} -%}
+{%- set objectFit = fits[(fit|default('cover'))|lower] | default('cover') -%}
+<img src="{{ src|default('') }}" alt="" style="object-fit: {{ objectFit }}">

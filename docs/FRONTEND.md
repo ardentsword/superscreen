@@ -72,7 +72,7 @@ injects it into a `.tile-content` wrapper — there is no per-type logic in JS.
 | type     | template output                               | notes                              |
 |----------|-----------------------------------------------|------------------------------------|
 | `text`   | `<div class="text">`                          | **auto-escaped** by Twig           |
-| `image`  | `<img>`                                       | `object-fit: cover`                |
+| `image`  | `<img>`                                       | `object-fit` from optional `fit` (default cover) |
 | `video`  | `<video muted autoplay loop playsinline>`     | muted is mandatory for autoplay    |
 | `iframe` | `<iframe sandbox>`                            | some sites refuse to embed         |
 | `html`   | sandboxed `<iframe srcdoc>` (`allow-scripts`)  | markup/JS isolated to the tile's own opaque-origin frame; `src` accepted as a fallback |
