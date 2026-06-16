@@ -1,1 +1,12 @@
-<video src="{{ src|default('') }}" muted autoplay loop playsinline></video>
+{# Optional `fit` controls how the video fills its tile (same mapping as image):
+   friendly aliases map to a fixed set of CSS object-fit values, so an unknown
+   value safely falls back to `cover`. #}
+{%- set fits = {
+    'cover': 'cover', 'filled': 'cover',
+    'contain': 'contain', 'fit': 'contain',
+    'fill': 'fill', 'stretched': 'fill',
+    'none': 'none', 'clipped': 'none',
+    'scale-down': 'scale-down',
+} -%}
+{%- set objectFit = fits[(fit|default('cover'))|lower] | default('cover') -%}
+<video src="{{ src|default('') }}" muted autoplay loop playsinline style="object-fit: {{ objectFit }}"></video>

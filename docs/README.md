@@ -129,7 +129,7 @@ unaffected** by the API-facing simplification.
 |----------|-----------------------|--------------------------------------------|
 | `text`   | `text`, optional style | Text in a cell.                            |
 | `image`  | `src`, optional `fit` | Image. `fit` sets `object-fit` — `cover`/`filled` (default), `contain`/`fit`, `fill`/`stretched`, `none`/`clipped`, `scale-down`. |
-| `video`  | `src`                 | Muted autoplay loop (browsers block sound).|
+| `video`  | `src`, optional `fit` | Muted autoplay loop (browsers block sound). `fit` as for `image`. |
 | `iframe` | `src`                 | Embedded web page (see CSP caveat below).  |
 | `html`   | `html`                | Raw HTML (trusted callers only — XSS risk).|
 
