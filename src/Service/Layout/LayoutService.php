@@ -44,7 +44,7 @@ final readonly class LayoutService
      * @throws TileLimitException          when an id/content/queue limit is exceeded
      * @throws NoSpaceException            when the tile can never fit (larger than the grid)
      */
-    public function upsert(TileRequest $request, int $now): TileUpsertResult
+    public function upsert(TileRequest $request, int $now, ?string $apiKeyId = null): TileUpsertResult
     {
         $content = $request->getContent();
         $type = $content['type'] ?? null;
@@ -100,6 +100,7 @@ final readonly class LayoutService
                 size: $size,
                 duration: $request->getDuration(),
                 enqueuedAt: $this->queue->find($id)?->getEnqueuedAt() ?? $now,
+                apiKeyId: $apiKeyId,
             ));
 
             return new TileUpsertResult($id, null, false, true);
@@ -113,6 +114,7 @@ final readonly class LayoutService
             position: $position,
             createdAt: $existing?->getCreatedAt() ?? $now,
             expiresAt: $duration === null ? null : $now + $duration,
+            apiKeyId: $apiKeyId,
         );
         $this->tiles->store($tile);
         $this->queue->remove($id); // was queued before, now placed
@@ -159,6 +161,7 @@ final readonly class LayoutService
                 size: Size::fromDimensions($other->getPosition()->w, $other->getPosition()->h),
                 duration: $expiresAt === null ? null : max(0, $expiresAt - $now),
                 enqueuedAt: $now,
+                apiKeyId: $other->getApiKeyId(),
             ));
         }
 
@@ -169,6 +172,7 @@ final readonly class LayoutService
             position: $target,
             createdAt: $tile->getCreatedAt(),
             expiresAt: $tile->getExpiresAt(),
+            apiKeyId: $tile->getApiKeyId(), // move preserves authorship
         );
         $this->tiles->store($moved);
 
@@ -233,6 +237,7 @@ final readonly class LayoutService
                 position: $position,
                 createdAt: $now,
                 expiresAt: $duration === null ? null : $now + $duration,
+                apiKeyId: $entry->getApiKeyId(),
             ));
             $this->queue->remove($entry->getId());
             $occupied[] = $position;

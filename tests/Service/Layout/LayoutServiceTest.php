@@ -293,6 +293,22 @@ final class LayoutServiceTest extends TestCase
     }
 
     #[Test]
+    public function upsert_stamps_the_api_key_and_it_survives_queue_eviction(): void
+    {
+        $service = $this->service(cols: 1, rows: 1);
+
+        $placed = $service->upsert($this->request('a', Size::Small), self::NOW, 'key-A');
+        self::assertSame('key-A', $placed->tile->getApiKeyId());
+        self::assertSame('key-A', $this->tiles->find('a')->getApiKeyId());
+
+        // 'b' can't fit -> queued, carrying its own key.
+        $service->upsert($this->request('b', Size::Small), self::NOW, 'key-B');
+        // Freeing 'a' drains 'b' in; its attribution is preserved.
+        $service->delete('a', self::NOW);
+        self::assertSame('key-B', $this->tiles->find('b')->getApiKeyId());
+    }
+
+    #[Test]
     public function tile_larger_than_the_grid_still_throws(): void
     {
         $service = $this->service(cols: 1, rows: 1);

@@ -24,6 +24,7 @@ readonly class Tile
         private Position $position,
         private int $createdAt,
         private ?int $expiresAt = null,
+        private ?string $apiKeyId = null,
     ) {}
 
     public function getId(): string
@@ -57,6 +58,15 @@ readonly class Tile
     public function getExpiresAt(): ?int
     {
         return $this->expiresAt;
+    }
+
+    /**
+     * Id of the API key that last created/updated this tile (null when auth is
+     * open). Internal attribution — not exposed in the public layout.
+     */
+    public function getApiKeyId(): ?string
+    {
+        return $this->apiKeyId;
     }
 
     /**

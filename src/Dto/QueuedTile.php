@@ -24,6 +24,7 @@ final readonly class QueuedTile
         private Size $size,
         private ?int $duration,
         private int $enqueuedAt,
+        private ?string $apiKeyId = null,
     ) {}
 
     public function getId(): string
@@ -52,6 +53,11 @@ final readonly class QueuedTile
     public function getDuration(): ?int
     {
         return $this->duration;
+    }
+
+    public function getApiKeyId(): ?string
+    {
+        return $this->apiKeyId;
     }
 
     public function getEnqueuedAt(): int

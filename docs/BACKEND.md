@@ -156,10 +156,23 @@ which is why these caps matter.
 
 ## 8. Security
 
-- Reads (`GET /api/layout`, `GET /`) are open.
-- Writes (`POST`, `DELETE`) may require a shared secret via an `X-Api-Key`
-  header; disabled by default for a trusted LAN.
-- If exposed beyond the LAN, serve over HTTPS and require the key.
+- Reads (`GET /api/layout`, `GET /`) are open — the display never needs a key.
+- **Writes** (`POST`/`PATCH`/`DELETE` under `/api`) require an `X-Api-Key` header.
+  Enforced by `App\EventSubscriber\ApiKeySubscriber`. Keys are **named, hashed**
+  (`App\Service\ApiKey\ApiKeyRepository`): only a SHA-256 hash is stored, in a
+  dedicated `var/data/keys.json` (separate from tile state, in the shared deploy
+  dir), keyed by a short id. Manage with `app:apikey:create <label>` /
+  `app:apikey:list` / `app:apikey:revoke <id>`. The create command prints the
+  token **once**.
+- **Auto-activates** only once ≥1 key exists; with no keys, writes are open
+  (so the API can't lock itself out before a key is created). Compared with
+  `hash_equals`. Serve over HTTPS (production does).
+- **Per-tile attribution:** the subscriber exposes the matched key id on the
+  request; `LayoutService` stamps it on the tile (`apiKeyId`, persisted, carried
+  through queue/eviction; `null` in open mode). It's **internal audit metadata —
+  not** included in the public `GET /api/layout` response. Auth is a custom
+  subscriber rather than Symfony Security: stateless machine keys with no
+  users/roles/sessions, so the firewall machinery isn't warranted (yet).
 - The `html` content type is rendered inside a **sandboxed `<iframe srcdoc>`**
   (`allow-scripts`, no `allow-same-origin`), so its markup/JS is isolated to that
   tile's opaque-origin frame and can't touch the display, other tiles, or storage

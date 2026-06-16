@@ -87,6 +87,7 @@ readonly class QueueRepository
             'size' => $entry->getSize()->value,
             'duration' => $entry->getDuration(),
             'enqueued_at' => $entry->getEnqueuedAt(),
+            'api_key_id' => $entry->getApiKeyId(),
         ];
     }
 
@@ -106,6 +107,7 @@ readonly class QueueRepository
             size: Size::from((string) $data['size']),
             duration: isset($data['duration']) ? (int) $data['duration'] : null,
             enqueuedAt: (int) $data['enqueued_at'],
+            apiKeyId: isset($data['api_key_id']) ? (string) $data['api_key_id'] : null,
         );
     }
 }

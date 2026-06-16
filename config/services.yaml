@@ -32,3 +32,13 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # API keys live in their own JSON file, separate from the tile state.
+    app.api_key_store:
+        class: App\Service\SimpleDatabase\SimpleDataService
+        arguments:
+            $dataFile: '%kernel.project_dir%/var/data/keys.json'
+
+    App\Service\ApiKey\ApiKeyRepository:
+        arguments:
+            $store: '@app.api_key_store'

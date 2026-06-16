@@ -109,6 +109,12 @@ All endpoints are **implemented**. The controller is thin — it maps HTTP to
 - `DELETE /api/tiles/{id}` — idempotent delete via `TileRepository`.
 - `GET /api/layout` — `{grid, tiles}` snapshot; sets a body-hash ETag and returns
   304 via `isNotModified`.
+- **Auth:** writes require an `X-Api-Key` header, enforced by `ApiKeySubscriber`
+  iff ≥1 key exists (else open). Named, hashed keys in `var/data/keys.json`
+  (`ApiKeyRepository::resolve` → key id); manage via `app:apikey:create|list|revoke`.
+  Reads open. The matched key id is stamped on each tile (`Tile::apiKeyId`,
+  internal audit only — not in the layout response). Custom subscriber, not
+  Symfony Security (no users/roles/sessions).
 
 ## Display (the renderer)
 
@@ -146,9 +152,8 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
 
 1. Explicit validation constraints on `TileRequest` (e.g. non-empty id, required
    content fields per type).
-2. Optional `X-Api-Key` auth on writes (`docs/BACKEND.md §8`).
-3. Display polish: enter/exit transitions, nightly auto-reload, stale indicator.
-4. Pi-side ops (`docs/OPERATIONS.md`): bootstrap, system config (`sync.sh` for
+2. Display polish: enter/exit transitions, nightly auto-reload, stale indicator.
+3. Pi-side ops (`docs/OPERATIONS.md`): bootstrap, system config (`sync.sh` for
    systemd/kiosk), kiosk hardening, watchdog.
 
 ## Deployment (app tier)

@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Dto\MoveRequest;
 use App\Dto\Tile;
 use App\Dto\TileRequest;
+use App\EventSubscriber\ApiKeySubscriber;
 use App\Service\Display\TileRenderer;
 use App\Service\Layout\LayoutService;
 use App\Service\Layout\TileLimitException;
@@ -32,11 +33,14 @@ final class TileApiController extends AbstractController
      */
     #[Route('/tiles', name: 'tiles_upsert', methods: ['POST'])]
     public function upsert(
+        Request $httpRequest,
         #[MapRequestPayload] TileRequest $request,
         LayoutService $layout,
     ): JsonResponse {
+        $apiKeyId = $httpRequest->attributes->get(ApiKeySubscriber::ATTRIBUTE);
+
         try {
-            $result = $layout->upsert($request, time());
+            $result = $layout->upsert($request, time(), \is_string($apiKeyId) ? $apiKeyId : null);
         } catch (UnknownContentTypeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (TileLimitException $e) {

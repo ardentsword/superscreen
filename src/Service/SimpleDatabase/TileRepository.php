@@ -109,6 +109,7 @@ readonly class TileRepository
             'position' => ['x' => $position->x, 'y' => $position->y, 'w' => $position->w, 'h' => $position->h],
             'created_at' => $tile->getCreatedAt(),
             'expires_at' => $tile->getExpiresAt(),
+            'api_key_id' => $tile->getApiKeyId(),
         ];
     }
 
@@ -135,6 +136,7 @@ readonly class TileRepository
             ),
             createdAt: (int) $data['created_at'],
             expiresAt: isset($data['expires_at']) ? (int) $data['expires_at'] : null,
+            apiKeyId: isset($data['api_key_id']) ? (string) $data['api_key_id'] : null,
         );
     }
 }
