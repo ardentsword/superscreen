@@ -1,2 +1,10 @@
-{# Canonical field is `html`; accept `src` as a lenient fallback. Trusted callers only. #}
-<div class="html">{{ (html is defined ? html : src|default(''))|raw }}</div>
+{# html tiles run inside a sandboxed iframe so their markup and JavaScript are
+   trapped in their own opaque-origin frame — they can't touch the display app,
+   other tiles, cookies/storage, or the top page. `allow-scripts` (without
+   `allow-same-origin`) lets scripts run but stay isolated; drop it for no JS at
+   all. Canonical field is `html`; `src` is accepted as a fallback. #}
+{%- set markup = html is defined ? html : src|default('') -%}
+{%- set document -%}
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;color:#eee;font-family:ui-sans-serif,system-ui,sans-serif}</style>{{ markup|raw }}
+{%- endset -%}
+<iframe class="html" sandbox="allow-scripts" srcdoc="{{ document|e('html_attr') }}"></iframe>

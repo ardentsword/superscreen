@@ -75,7 +75,7 @@ injects it into a `.tile-content` wrapper — there is no per-type logic in JS.
 | `image`  | `<img>`                                       | `object-fit: cover`                |
 | `video`  | `<video muted autoplay loop playsinline>`     | muted is mandatory for autoplay    |
 | `iframe` | `<iframe sandbox>`                            | some sites refuse to embed         |
-| `html`   | `<div class="html">…|raw</div>`               | trusted callers only; `src` accepted as a fallback for `html` |
+| `html`   | sandboxed `<iframe srcdoc>` (`allow-scripts`)  | markup/JS isolated to the tile's own opaque-origin frame; `src` accepted as a fallback |
 
 Adding a type is one new template. Because `ContentType` is a closed enum
 (validated on write), there's no "unknown type" to handle at render time.

@@ -139,8 +139,10 @@ visual grammar of the screen is controlled centrally.
 - Writes (`POST`, `DELETE`) may require a shared secret via an `X-Api-Key`
   header; disabled by default for a trusted LAN.
 - If exposed beyond the LAN, serve over HTTPS and require the key.
-- The `html` content type is an injection vector — only trusted callers should be
-  able to write tiles.
+- The `html` content type is rendered inside a **sandboxed `<iframe srcdoc>`**
+  (`allow-scripts`, no `allow-same-origin`), so its markup/JS is isolated to that
+  tile's opaque-origin frame and can't touch the display, other tiles, or storage
+  (see `docs/FRONTEND.md` §5). Still prefer trusted callers for `html`.
 
 ## 9. Backend-specific open items
 

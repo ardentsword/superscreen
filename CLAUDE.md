@@ -118,7 +118,9 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
 - **Content is rendered server-side** by `App\Service\Display\TileRenderer` —
   one Twig template per `ContentType` in `templates/tile/<type>.html.twig`. The
   layout response carries `tile.html`; the display injects it (no per-type JS).
-  `text` is Twig-auto-escaped; `html` uses `|raw` (accepts `src` as a fallback).
+  `text` is Twig-auto-escaped; `html` is rendered inside a **sandboxed
+  `<iframe srcdoc>`** (`allow-scripts`, no `allow-same-origin`) so its JS is
+  isolated to that tile's frame (accepts `src` as a fallback).
 - `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
 
 ## Conventions & gotchas
