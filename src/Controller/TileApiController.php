@@ -8,6 +8,7 @@ use App\Dto\Tile;
 use App\Dto\TileRequest;
 use App\Service\Display\TileRenderer;
 use App\Service\Layout\LayoutService;
+use App\Service\Layout\TileLimitException;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,6 +38,8 @@ final class TileApiController extends AbstractController
             $result = $layout->upsert($request, time());
         } catch (UnknownContentTypeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (TileLimitException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
         } catch (NoSpaceException $e) {
             // Only thrown when the tile can never fit (larger than the grid).
             return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);

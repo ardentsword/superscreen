@@ -128,10 +128,24 @@ visual grammar of the screen is controlled centrally.
 - Required payload fields per content type must be present (e.g. `src` for
   `image`/`video`/`iframe`).
 - `duration` is `null` or a positive integer.
-- `id` is a non-empty, stable string.
+- `id` is a non-empty, stable string, at most `app.limits.max_id_length` chars
+  (else **413/422**).
 - Placement validity (fit within the grid, overlap) is the
   backend's responsibility at placement time, not caller input — **TBD**, see open
   questions in the overview.
+
+### Resource limits (DoS protection)
+The write API is a public surface, so storage is bounded:
+- **Content size** capped at `app.limits.max_content_bytes` (default 256 KiB) → **413**.
+- **id length** capped at `app.limits.max_id_length` (default 128) → **422**.
+- **Queue length** capped at `app.limits.max_queue` (default 50); a full queue
+  rejects new no-room tiles with **503** (re-queuing an existing id still works).
+- **Expired tiles are pruned** from storage on each write (TTL only filters on
+  read), so the store can't grow unbounded over time.
+
+Placed tiles are already bounded by grid capacity, so total storage ≈ grid +
+queue cap. Note `SimpleDataService` loads the whole store into memory per request,
+which is why these caps matter.
 
 ## 8. Security
 

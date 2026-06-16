@@ -39,6 +39,24 @@ readonly class TileRepository
     }
 
     /**
+     * Delete expired tiles from storage (TTL only filters on read, so without
+     * this they accumulate forever). Returns the number removed.
+     */
+    public function pruneExpired(int $now): int
+    {
+        $expired = [];
+        foreach ($this->dataService->getAll() as $key => $raw) {
+            if (str_starts_with((string) $key, self::KEY_PREFIX) && !$this->fromArray($raw)->isLiveAt($now)) {
+                $expired[] = (string) $key;
+            }
+        }
+
+        $this->dataService->removeMany($expired);
+
+        return \count($expired);
+    }
+
+    /**
      * Live (non-expired) tiles as of $now (unix seconds).
      *
      * @return list<Tile>

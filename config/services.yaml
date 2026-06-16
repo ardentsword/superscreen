@@ -11,6 +11,10 @@ parameters:
     app.grid.rows: 5
     app.grid.gap: 8
     app.poll_interval: 3 # seconds between display polls
+    # Write-API resource limits (the API is a public surface).
+    app.limits.max_queue: 50          # max tiles waiting for space
+    app.limits.max_content_bytes: 262144  # 256 KiB per tile content
+    app.limits.max_id_length: 128
 
 services:
     # default configuration for services in *this* file

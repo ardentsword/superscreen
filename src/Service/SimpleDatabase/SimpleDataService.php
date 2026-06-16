@@ -43,14 +43,29 @@ class SimpleDataService
 
     public function remove(string $key): self
     {
+        return $this->removeMany([$key]);
+    }
+
+    /**
+     * Remove several keys in a single write.
+     *
+     * @param list<string> $keys
+     */
+    public function removeMany(array $keys): self
+    {
         $cache = $this->getAll();
-        if (!array_key_exists($key, $cache)) {
-            return $this;
+        $changed = false;
+        foreach ($keys as $key) {
+            if (\array_key_exists($key, $cache)) {
+                unset($cache[$key]);
+                $changed = true;
+            }
         }
 
-        unset($cache[$key]);
-        $this->dataCache = $cache;
-        $this->writeCache();
+        if ($changed) {
+            $this->dataCache = $cache;
+            $this->writeCache();
+        }
 
         return $this;
     }

@@ -14,6 +14,7 @@ use App\Service\SimpleDatabase\QueueRepository;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\ContentType;
 use App\Tile\Position;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Application service for layout mutations: turns an API-facing TileRequest into
@@ -28,6 +29,9 @@ final readonly class LayoutService
         private TileRepository $tiles,
         private QueueRepository $queue,
         private TilePlacer $placer,
+        #[Autowire('%app.limits.max_queue%')] private int $maxQueue = 50,
+        #[Autowire('%app.limits.max_content_bytes%')] private int $maxContentBytes = 262144,
+        #[Autowire('%app.limits.max_id_length%')] private int $maxIdLength = 128,
     ) {}
 
     /**
@@ -36,6 +40,7 @@ final readonly class LayoutService
      * @param int $now current unix time (seconds)
      *
      * @throws UnknownContentTypeException when content.type is unknown/missing
+     * @throws TileLimitException          when an id/content/queue limit is exceeded
      * @throws NoSpaceException            when the tile can never fit (larger than the grid)
      */
     public function upsert(TileRequest $request, int $now): TileUpsertResult
@@ -51,6 +56,17 @@ final readonly class LayoutService
         // id is optional: generate a hashed one when missing/empty.
         $id = $request->getId();
         $id = ($id === null || $id === '') ? self::generateId() : $id;
+
+        // Bound resource use (the API is a public write surface).
+        if (mb_strlen($id) > $this->maxIdLength) {
+            throw TileLimitException::idTooLong($this->maxIdLength);
+        }
+        if (\strlen((string) json_encode($content)) > $this->maxContentBytes) {
+            throw TileLimitException::contentTooLarge($this->maxContentBytes);
+        }
+
+        // Drop expired tiles so storage can't grow unbounded over time.
+        $this->tiles->pruneExpired($now);
 
         $existing = $this->tiles->find($id);
         $size = $request->getSize();
@@ -69,6 +85,12 @@ final readonly class LayoutService
             }
 
             // No room right now: queue it (an id is placed XOR queued).
+            // Cap the queue so it can't grow without bound; re-queuing an
+            // already-queued id is always allowed (it just updates).
+            if ($this->queue->find($id) === null && $this->queue->count() >= $this->maxQueue) {
+                throw TileLimitException::queueFull($this->maxQueue);
+            }
+
             $this->tiles->delete($id);
             $this->queue->enqueue(new QueuedTile(
                 id: $id,

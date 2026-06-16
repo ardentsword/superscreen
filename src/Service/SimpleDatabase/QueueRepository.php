@@ -38,6 +38,21 @@ readonly class QueueRepository
     }
 
     /**
+     * Number of queued tiles (without deserializing them).
+     */
+    public function count(): int
+    {
+        $n = 0;
+        foreach (array_keys($this->dataService->getAll()) as $key) {
+            if (str_starts_with((string) $key, self::KEY_PREFIX)) {
+                ++$n;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
      * All queued tiles in FIFO order (oldest enqueued first).
      *
      * @return list<QueuedTile>

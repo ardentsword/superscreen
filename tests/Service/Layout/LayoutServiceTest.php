@@ -6,6 +6,7 @@ namespace App\Tests\Service\Layout;
 
 use App\Dto\TileRequest;
 use App\Service\Layout\LayoutService;
+use App\Service\Layout\TileLimitException;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
 use App\Service\Placement\TilePlacer;
@@ -40,9 +41,21 @@ final class LayoutServiceTest extends TestCase
         }
     }
 
-    private function service(int $cols = 6, int $rows = 4): LayoutService
-    {
-        return new LayoutService($this->tiles, $this->queue, new TilePlacer($cols, $rows));
+    private function service(
+        int $cols = 6,
+        int $rows = 4,
+        int $maxQueue = 50,
+        int $maxContentBytes = 262144,
+        int $maxIdLength = 128,
+    ): LayoutService {
+        return new LayoutService(
+            $this->tiles,
+            $this->queue,
+            new TilePlacer($cols, $rows),
+            $maxQueue,
+            $maxContentBytes,
+            $maxIdLength,
+        );
     }
 
     /**
@@ -169,6 +182,62 @@ final class LayoutServiceTest extends TestCase
         $ids = array_map(static fn ($t) => $t->getId(), $live);
         self::assertSame(['b'], $ids);
         self::assertNull($this->queue->find('b'));
+    }
+
+    #[Test]
+    public function id_longer_than_the_limit_is_rejected(): void
+    {
+        $service = $this->service(maxIdLength: 5);
+
+        try {
+            $service->upsert($this->request('way-too-long', Size::Small), self::NOW);
+            self::fail('expected TileLimitException');
+        } catch (TileLimitException $e) {
+            self::assertSame(422, $e->statusCode);
+        }
+    }
+
+    #[Test]
+    public function content_larger_than_the_limit_is_rejected(): void
+    {
+        $service = $this->service(maxContentBytes: 50);
+
+        try {
+            $service->upsert($this->request('big', Size::Small, payload: ['text' => str_repeat('x', 200)]), self::NOW);
+            self::fail('expected TileLimitException');
+        } catch (TileLimitException $e) {
+            self::assertSame(413, $e->statusCode);
+        }
+    }
+
+    #[Test]
+    public function queue_full_is_rejected(): void
+    {
+        $service = $this->service(cols: 1, rows: 1, maxQueue: 1);
+        $service->upsert($this->request('a', Size::Small), self::NOW); // placed
+        $service->upsert($this->request('b', Size::Small), self::NOW); // queued (1/1)
+
+        try {
+            $service->upsert($this->request('c', Size::Small), self::NOW);
+            self::fail('expected TileLimitException');
+        } catch (TileLimitException $e) {
+            self::assertSame(503, $e->statusCode);
+        }
+        // The already-queued tile can still be updated despite a full queue.
+        $service->upsert($this->request('b', Size::Small, payload: ['text' => 'updated']), self::NOW);
+    }
+
+    #[Test]
+    public function expired_tiles_are_pruned_from_storage_on_write(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('temp', Size::Small, duration: 60), self::NOW);
+        self::assertNotNull($this->tiles->find('temp'));
+
+        // A later write prunes the now-expired tile out of storage entirely.
+        $service->upsert($this->request('other', Size::Small), self::NOW + 120);
+
+        self::assertNull($this->tiles->find('temp'));
     }
 
     #[Test]
