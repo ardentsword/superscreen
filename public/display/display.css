@@ -49,11 +49,47 @@ html, body {
     height: 100%;
 }
 
-/* Manual-delete cross in the top-right corner (overrides the fill rule above). */
-.tile > .tile-delete {
+/* Timeout indicator, top-right corner. Timed tiles show a pie that spins down
+   to empty; permanent tiles show nothing (the badge is hidden in JS). Unlike
+   the buttons it stays visible (it's an at-a-glance status, not a control). */
+@property --pie {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 360deg;
+}
+
+.tile > .tile-status {
     position: absolute;
     top: 6px;
     right: 6px;
+    z-index: 2;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.45;
+}
+
+/* Timed: white pie over a dark remainder; --pie shrinks 360deg -> 0deg. */
+.tile-status[data-mode='timed'] {
+    background: conic-gradient(#fff var(--pie), rgba(0, 0, 0, 0.5) 0);
+}
+
+@keyframes tile-spin-down {
+    from { --pie: 360deg; }
+    to { --pie: 0deg; }
+}
+
+/* Manual-delete cross, second in the corner row (left of the timer). */
+.tile > .tile-delete {
+    position: absolute;
+    top: 6px;
+    right: calc(6px + 1.6rem + 6px);
     z-index: 2;
     width: 1.6rem;
     height: 1.6rem;
@@ -68,52 +104,6 @@ html, body {
     font-size: 1.2rem;
     line-height: 1;
     cursor: pointer;
-    opacity: 0.6;
-}
-
-.tile > .tile-delete:hover {
-    opacity: 1;
-    background: #c0392b;
-}
-
-/* Timeout indicator, same shape/size/position style as the cross, just right
-   of it. Timed tiles show a pie that spins down to empty; permanent tiles ∞. */
-@property --pie {
-    syntax: '<angle>';
-    inherits: false;
-    initial-value: 360deg;
-}
-
-.tile > .tile-status {
-    position: absolute;
-    top: 6px;
-    right: calc(6px + 1.6rem + 6px);
-    z-index: 2;
-    width: 1.6rem;
-    height: 1.6rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    color: #fff;
-    font-size: 1rem;
-    line-height: 1;
-    opacity: 0.45;
-}
-
-/* Permanent: dark disc with the ∞ glyph. */
-.tile-status[data-mode='permanent'] {
-    background: rgba(0, 0, 0, 0.55);
-}
-
-/* Timed: white pie over a dark remainder; --pie shrinks 360deg -> 0deg. */
-.tile-status[data-mode='timed'] {
-    background: conic-gradient(#fff var(--pie), rgba(0, 0, 0, 0.5) 0);
-}
-
-@keyframes tile-spin-down {
-    from { --pie: 360deg; }
-    to { --pie: 0deg; }
 }
 
 /* Drag handle, third in the corner row, same circular style. */
@@ -133,20 +123,7 @@ html, body {
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
     cursor: grab;
-    opacity: 0.6;
     touch-action: none; /* let pointer-drag work on touch screens */
-}
-
-.tile > .tile-move:hover {
-    opacity: 1;
-}
-
-.tile.dragging {
-    z-index: 10; /* keep the dragged tile above its neighbours */
-}
-
-.tile.dragging .tile-move {
-    cursor: grabbing;
 }
 
 /* Pin / reserve toggle, fourth in the corner row. */
@@ -166,11 +143,44 @@ html, body {
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
     cursor: pointer;
-    opacity: 0.6;
 }
 
-.tile > .tile-pin:hover {
+/* The buttons are hidden until you hover the tile — the wall stays clean, the
+   controls are there when an operator reaches for them. */
+.tile > .tile-delete,
+.tile > .tile-move,
+.tile > .tile-pin {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.tile:hover > .tile-delete,
+.tile:hover > .tile-move,
+.tile:hover > .tile-pin,
+.tile.dragging > .tile-move { /* keep the handle live mid-drag if hover is lost */
+    opacity: 0.6;
+    pointer-events: auto;
+}
+
+/* Direct hover on a button (scoped under .tile:hover so it outranks the reveal
+   rule above) emphasises it. */
+.tile:hover > .tile-delete:hover {
     opacity: 1;
+    background: #c0392b;
+}
+
+.tile:hover > .tile-move:hover,
+.tile:hover > .tile-pin:hover {
+    opacity: 1;
+}
+
+.tile.dragging {
+    z-index: 10; /* keep the dragged tile above its neighbours */
+}
+
+.tile.dragging .tile-move {
+    cursor: grabbing;
 }
 
 /* Page-level toggle to hide every per-tile button (clean wall view). */
@@ -197,6 +207,7 @@ html, body {
     opacity: 1;
 }
 
+/* Fully off — not even on hover (truly touch-free wall mode). */
 body.controls-hidden .tile-delete,
 body.controls-hidden .tile-move,
 body.controls-hidden .tile-pin,
@@ -204,13 +215,13 @@ body.controls-hidden .reservation-placeholder .tile-delete {
     display: none;
 }
 
-/* A reserved tile: lit pin + a subtle amber outline. */
+/* A reserved tile: lit pin (on hover) + a subtle amber outline (always). */
 .tile.reserved {
     outline: 2px solid rgba(245, 158, 11, 0.75);
     outline-offset: -2px;
 }
 
-.tile.reserved > .tile-pin {
+.tile.reserved:hover > .tile-pin {
     background: #f59e0b;
     opacity: 1;
 }

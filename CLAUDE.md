@@ -138,9 +138,12 @@ The page is a vanilla, no-build renderer (assets in `public/display/`):
   `text` is Twig-auto-escaped; `html` is rendered inside a **sandboxed
   `<iframe srcdoc>`** (`allow-scripts`, no `allow-same-origin`) so its JS is
   isolated to that tile's frame (accepts `src` as a fallback).
-- Per-tile corner controls (top-right): delete ×, timeout pie/∞, a **drag handle**
-  (grip dots → `PATCH …/position`, snaps to cells, polling pauses mid-drag), and a
-  **pin** (📌 → `PUT|DELETE …/reservation`). Reserved tiles get an amber outline;
+- Per-tile corner controls (top-right): delete ×, a **drag handle** (grip dots →
+  `PATCH …/position`, snaps to cells, polling pauses mid-drag), and a **pin** (📌 →
+  `PUT|DELETE …/reservation`). The buttons are **hidden until the tile is hovered**;
+  the page-level eye toggle (`body.controls-hidden`) hides them outright. The
+  **timeout pie** sits in the very corner, always visible (timed tiles only —
+  permanent tiles show no indicator). Reserved tiles get an amber outline;
   held-but-empty reserved spots render as dashed placeholders with an un-pin
   button. Writes go through `apiWrite` (sends the operator key, prompts on 401).
 - `GET /grid-preview` (`GridPreviewController`) remains a static dev aid.
