@@ -117,6 +117,39 @@ html, body {
     to { --pie: 0deg; }
 }
 
+/* Drag handle, third in the corner row, same circular style. */
+.tile > .tile-move {
+    position: absolute;
+    top: 6px;
+    left: calc(6px + 2 * (1.6rem + 6px));
+    z-index: 2;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    cursor: grab;
+    opacity: 0.6;
+    touch-action: none; /* let pointer-drag work on touch screens */
+}
+
+.tile > .tile-move:hover {
+    opacity: 1;
+}
+
+.tile.dragging {
+    z-index: 10; /* keep the dragged tile above its neighbours */
+}
+
+.tile.dragging .tile-move {
+    cursor: grabbing;
+}
+
 
 .tile img,
 .tile video {

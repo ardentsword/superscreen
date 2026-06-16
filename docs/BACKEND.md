@@ -32,10 +32,17 @@ returns. See [`FRONTEND.md`](FRONTEND.md).
 
 | Method & path            | Purpose                                  | Auth         |
 |--------------------------|------------------------------------------|--------------|
-| `GET /api/layout`        | Current grid + live (non-expired) tiles. | none         |
-| `POST /api/tiles`        | Add or replace a tile (upsert by `id`).  | optional key |
-| `DELETE /api/tiles/{id}` | Remove a tile.                           | optional key |
-| `GET /`                  | The display page itself.                 | none         |
+| `GET /api/layout`               | Current grid + live (non-expired) tiles. | none         |
+| `POST /api/tiles`               | Add or replace a tile (upsert by `id`).  | optional key |
+| `PATCH /api/tiles/{id}/position`| Move a placed tile to `{x, y}` (manual override). | optional key |
+| `DELETE /api/tiles/{id}`        | Remove a tile.                           | optional key |
+| `GET /`                         | The display page itself.                 | none         |
+
+`PATCH /api/tiles/{id}/position` (body `{ "x", "y" }`) is a **human override** of
+automatic placement (used by drag-to-move on the display). It keeps the tile's
+footprint, evicts any tiles it lands on to the queue (preserving their remaining
+TTL) and drains them back into free space. 404 if no placed tile has that id; 422
+if the footprint wouldn't fit the grid at the target.
 
 ### `POST /api/tiles` — request body
 ```json

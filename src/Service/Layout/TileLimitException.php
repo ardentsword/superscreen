@@ -35,4 +35,12 @@ final class TileLimitException extends \RuntimeException
 
         return $e;
     }
+
+    public static function outOfBounds(): self
+    {
+        $e = new self('The target position does not fit within the grid.');
+        $e->statusCode = 422;
+
+        return $e;
+    }
 }

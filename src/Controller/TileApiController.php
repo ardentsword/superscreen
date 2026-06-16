@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\MoveRequest;
 use App\Dto\Tile;
 use App\Dto\TileRequest;
 use App\Service\Display\TileRenderer;
@@ -62,6 +63,39 @@ final class TileApiController extends AbstractController
             ],
             'expires_at' => $result->tile->getExpiresAt(),
         ], $result->created ? Response::HTTP_CREATED : Response::HTTP_OK);
+    }
+
+    /**
+     * Move a placed tile to a new top-left cell. Tiles it lands on are evicted
+     * to the queue. Returns the resolved position.
+     */
+    #[Route('/tiles/{id}/position', name: 'tiles_move', methods: ['PATCH'])]
+    public function move(
+        string $id,
+        #[MapRequestPayload] MoveRequest $move,
+        LayoutService $layout,
+    ): JsonResponse {
+        try {
+            $tile = $layout->move($id, $move->getX(), $move->getY(), time());
+        } catch (TileLimitException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
+        }
+
+        if ($tile === null) {
+            return $this->json(['error' => 'Tile not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $position = $tile->getPosition();
+
+        return $this->json([
+            'id' => $id,
+            'position' => [
+                'x' => $position->x,
+                'y' => $position->y,
+                'w' => $position->w,
+                'h' => $position->h,
+            ],
+        ]);
     }
 
     /**

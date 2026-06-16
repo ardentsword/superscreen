@@ -38,4 +38,19 @@ enum Size: string
     {
         return $this->footprint()['h'];
     }
+
+    /**
+     * The Size whose footprint matches the given dimensions (the inverse of
+     * footprint()). Used when re-queuing a placed tile that's been moved over.
+     */
+    public static function fromDimensions(int $w, int $h): self
+    {
+        foreach (self::cases() as $size) {
+            if ($size->width() === $w && $size->height() === $h) {
+                return $size;
+            }
+        }
+
+        throw new \ValueError(\sprintf('No size matches footprint %d×%d.', $w, $h));
+    }
 }

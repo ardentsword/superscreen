@@ -241,6 +241,58 @@ final class LayoutServiceTest extends TestCase
     }
 
     #[Test]
+    public function move_repositions_a_placed_tile(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('a', Size::Small), self::NOW); // placed at (0,0)
+
+        $moved = $service->move('a', 3, 2, self::NOW);
+
+        self::assertNotNull($moved);
+        self::assertSame(3, $moved->getPosition()->x);
+        self::assertSame(2, $moved->getPosition()->y);
+        self::assertSame(3, $this->tiles->find('a')->getPosition()->x);
+    }
+
+    #[Test]
+    public function move_onto_another_tile_evicts_it_to_the_queue_then_replaces(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('a', Size::Small), self::NOW); // (0,0)
+        $service->upsert($this->request('b', Size::Small), self::NOW); // (1,0)
+
+        $service->move('b', 0, 0, self::NOW); // drop b onto a
+
+        $b = $this->tiles->find('b');
+        self::assertSame([0, 0], [$b->getPosition()->x, $b->getPosition()->y]);
+        // a was evicted and re-placed elsewhere (grid has room), not stuck queued.
+        $a = $this->tiles->find('a');
+        self::assertNotNull($a);
+        self::assertNotSame([0, 0], [$a->getPosition()->x, $a->getPosition()->y]);
+        self::assertNull($this->queue->find('a'));
+    }
+
+    #[Test]
+    public function move_out_of_bounds_throws(): void
+    {
+        $service = $this->service(cols: 6, rows: 4);
+        $service->upsert($this->request('big', Size::Large), self::NOW); // 2×2 at (0,0)
+
+        try {
+            $service->move('big', 5, 3, self::NOW); // 5+2 > 6 cols
+            self::fail('expected TileLimitException');
+        } catch (TileLimitException $e) {
+            self::assertSame(422, $e->statusCode);
+        }
+    }
+
+    #[Test]
+    public function move_unknown_tile_returns_null(): void
+    {
+        self::assertNull($this->service()->move('nope', 0, 0, self::NOW));
+    }
+
+    #[Test]
     public function tile_larger_than_the_grid_still_throws(): void
     {
         $service = $this->service(cols: 1, rows: 1);

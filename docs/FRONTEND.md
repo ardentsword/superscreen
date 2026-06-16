@@ -106,14 +106,25 @@ Resilience rules:
 A browser left running for weeks slowly leaks. Counter it with a **scheduled
 nightly page reload**; because state is server-side (§6), the reload is seamless.
 
-## 8. Transitions
+## 8. Per-tile controls (operator affordances)
+
+Each tile carries three small circular corner buttons (top-left): a **delete ×**
+(`DELETE /api/tiles/{id}`), the **timeout pie / ∞** indicator, and a **drag
+handle** (grip dots). Dragging the handle snaps the tile cell-to-cell (live
+preview via the CSS grid vars) and commits on drop via
+`PATCH /api/tiles/{id}/position`; tiles it lands on are evicted to the queue
+server-side. **Polling is paused during a drag** so reconcile can't fight it, then
+resumes (the server is authoritative). These are management affordances for an
+operator on a browser — not really meant for the touch-free wall display.
+
+## 9. Transitions
 
 Tile enter/exit via a CSS class + `transitionend`, kept short (~150–300 ms fade).
 Position changes on a surviving tile animate "for free" since grid placement is
 animatable. Keep this minimal — flashy transitions on a 24/7 display get tiring
 and risk leaving half-faded nodes if mistimed.
 
-## 9. Frontend-specific open items
+## 10. Frontend-specific open items
 
 - Empty/default cell appearance (nothing, background, or fallback tile).
 - Whether transitions are wanted at all, and their style.

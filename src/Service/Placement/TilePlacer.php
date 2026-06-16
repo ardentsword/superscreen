@@ -21,6 +21,14 @@ final readonly class TilePlacer
     ) {}
 
     /**
+     * Whether a footprint placed at (x, y) lies fully within the grid.
+     */
+    public function fitsInGrid(int $x, int $y, int $w, int $h): bool
+    {
+        return $x >= 0 && $y >= 0 && $x + $w <= $this->cols && $y + $h <= $this->rows;
+    }
+
+    /**
      * @param list<Position> $occupied positions already taken on the grid
      *
      * @throws NoSpaceException when the tile does not fit anywhere

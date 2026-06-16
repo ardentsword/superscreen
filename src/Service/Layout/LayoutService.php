@@ -14,6 +14,7 @@ use App\Service\SimpleDatabase\QueueRepository;
 use App\Service\SimpleDatabase\TileRepository;
 use App\Tile\ContentType;
 use App\Tile\Position;
+use App\Tile\Size;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -120,6 +121,64 @@ final readonly class LayoutService
     }
 
     /**
+     * Move a placed tile to a new top-left cell (manual override of placement).
+     * Tiles it lands on are evicted to the queue and re-placed by the drain.
+     * Returns the moved tile, or null if no placed tile has that id.
+     *
+     * @throws TileLimitException when the target doesn't fit within the grid
+     */
+    public function move(string $id, int $x, int $y, int $now): ?Tile
+    {
+        $this->tiles->pruneExpired($now);
+
+        $tile = $this->tiles->find($id);
+        if ($tile === null) {
+            return null;
+        }
+
+        $w = $tile->getPosition()->w;
+        $h = $tile->getPosition()->h;
+        if (!$this->placer->fitsInGrid($x, $y, $w, $h)) {
+            throw TileLimitException::outOfBounds();
+        }
+
+        $target = new Position($x, $y, $w, $h);
+
+        // Evict any other live tiles overlapping the target to the queue.
+        foreach ($this->tiles->findLive($now) as $other) {
+            if ($other->getId() === $id || !self::overlaps($other->getPosition(), $target)) {
+                continue;
+            }
+
+            $this->tiles->delete($other->getId());
+            $expiresAt = $other->getExpiresAt();
+            $this->queue->enqueue(new QueuedTile(
+                id: $other->getId(),
+                contentType: $other->getContentType(),
+                content: $other->getContent(),
+                size: Size::fromDimensions($other->getPosition()->w, $other->getPosition()->h),
+                duration: $expiresAt === null ? null : max(0, $expiresAt - $now),
+                enqueuedAt: $now,
+            ));
+        }
+
+        $moved = new Tile(
+            id: $id,
+            contentType: $tile->getContentType(),
+            content: $tile->getContent(),
+            position: $target,
+            createdAt: $tile->getCreatedAt(),
+            expiresAt: $tile->getExpiresAt(),
+        );
+        $this->tiles->store($moved);
+
+        // Re-place evicted tiles into the remaining free space.
+        $this->drainQueue($now);
+
+        return $moved;
+    }
+
+    /**
      * Remove a tile (placed or queued), then drain the queue into any freed space.
      */
     public function delete(string $id, int $now): void
@@ -178,6 +237,15 @@ final readonly class LayoutService
             $this->queue->remove($entry->getId());
             $occupied[] = $position;
         }
+    }
+
+    /**
+     * Whether two grid rectangles overlap.
+     */
+    private static function overlaps(Position $a, Position $b): bool
+    {
+        return $a->x < $b->x + $b->w && $a->x + $a->w > $b->x
+            && $a->y < $b->y + $b->h && $a->y + $a->h > $b->y;
     }
 
     /**

@@ -9,6 +9,12 @@ const screen = document.getElementById('screen');
 const nodes = new Map();
 let etag = null;
 
+// Grid geometry from the last layout (used to snap drags to cells).
+const grid = { cols: 1, rows: 1, gap: 8 };
+// Active drag state, or null. While set, polling is paused so reconcile can't
+// fight the drag.
+let drag = null;
+
 /** A wrapper holding the server-rendered content HTML (Twig, per type). */
 function makeContentEl(html) {
     const el = document.createElement('div');
@@ -44,6 +50,91 @@ function makeDeleteButton(id) {
         poll(); // refresh now instead of waiting for the next tick
     });
     return button;
+}
+
+// Drag handle (grip dots) for moving a tile to another cell.
+const MOVE_SVG = '<svg viewBox="0 0 24 24" width="62%" height="62%" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+
+function makeMoveButton(id) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tile-move';
+    button.title = 'Drag to move';
+    button.innerHTML = MOVE_SVG;
+    button.addEventListener('pointerdown', (event) => startDrag(event, id));
+    return button;
+}
+
+/** Snap a pointer position to a grid cell, clamped so the footprint stays in bounds. */
+function cellFromPointer(clientX, clientY, w, h) {
+    const rect = screen.getBoundingClientRect();
+    const cellW = (rect.width - grid.gap * (grid.cols + 1)) / grid.cols;
+    const cellH = (rect.height - grid.gap * (grid.rows + 1)) / grid.rows;
+    const col = Math.floor((clientX - rect.left - grid.gap) / (cellW + grid.gap));
+    const row = Math.floor((clientY - rect.top - grid.gap) / (cellH + grid.gap));
+    return {
+        col: Math.max(0, Math.min(col, grid.cols - w)),
+        row: Math.max(0, Math.min(row, grid.rows - h)),
+    };
+}
+
+function startDrag(event, id) {
+    const node = nodes.get(id);
+    if (!node) {
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+
+    const el = node.el;
+    drag = {
+        id,
+        el,
+        handle: event.currentTarget,
+        w: Number(el.style.getPropertyValue('--w')) || 1,
+        h: Number(el.style.getPropertyValue('--h')) || 1,
+        col: null,
+        row: null,
+    };
+    el.classList.add('dragging');
+    drag.handle.setPointerCapture(event.pointerId);
+    drag.handle.addEventListener('pointermove', onDragMove);
+    drag.handle.addEventListener('pointerup', onDragEnd, { once: true });
+    drag.handle.addEventListener('pointercancel', onDragEnd, { once: true });
+}
+
+function onDragMove(event) {
+    if (!drag) {
+        return;
+    }
+    const { col, row } = cellFromPointer(event.clientX, event.clientY, drag.w, drag.h);
+    drag.col = col;
+    drag.row = row;
+    drag.el.style.setProperty('--x', col + 1); // live preview via the grid vars
+    drag.el.style.setProperty('--y', row + 1);
+}
+
+async function onDragEnd() {
+    if (!drag) {
+        return;
+    }
+    const { id, el, col, row, handle } = drag;
+    handle.removeEventListener('pointermove', onDragMove);
+    el.classList.remove('dragging');
+    drag = null;
+
+    if (col !== null) {
+        try {
+            await fetch(`${tilesUrl}/${encodeURIComponent(id)}/position`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x: col, y: row }),
+            });
+        } catch {
+            // ignore; the poll below re-syncs from the authoritative server state
+        }
+    }
+    poll();
 }
 
 function formatRemaining(seconds) {
@@ -96,9 +187,13 @@ function applyStatus(badge, tile) {
 }
 
 function reconcile(layout) {
+    grid.cols = layout.grid.cols;
+    grid.rows = layout.grid.rows;
+    grid.gap = layout.grid.gap ?? 8;
+
     screen.style.setProperty('--cols', layout.grid.cols);
     screen.style.setProperty('--rows', layout.grid.rows);
-    screen.style.setProperty('--gap', `${layout.grid.gap ?? 8}px`);
+    screen.style.setProperty('--gap', `${grid.gap}px`);
 
     const seen = new Set();
 
@@ -114,7 +209,7 @@ function reconcile(layout) {
             const contentEl = makeContentEl(tile.html);
             const statusEl = makeStatusBadge();
             applyStatus(statusEl, tile);
-            el.append(contentEl, makeDeleteButton(tile.id), statusEl);
+            el.append(contentEl, makeDeleteButton(tile.id), statusEl, makeMoveButton(tile.id));
             applyPosition(el, tile.position);
             screen.appendChild(el);
             nodes.set(tile.id, { el, contentEl, statusEl, contentKey });
@@ -141,6 +236,9 @@ function reconcile(layout) {
 }
 
 async function poll() {
+    if (drag) {
+        return; // don't reconcile mid-drag
+    }
     try {
         const headers = {};
         if (etag) {
