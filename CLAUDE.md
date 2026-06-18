@@ -34,7 +34,7 @@ The full design lives in [`docs/`](docs/) — read these before changing directi
 - `docs/FRONTEND.md` — the display page (vanilla, CSS Grid, keyed reconciliation).
 - `docs/OPERATIONS.md` — Pi provisioning, 3-tier deploy, monitoring.
 - `docs/PULL-SOURCED-TILES.md` — optional/future server-side polling.
-- `docs/MULTI-SCREEN.md` — plan for multiple independent screens (not yet built).
+- `docs/MULTI-SCREEN.md` — multiple independent screens (implemented).
 
 Settled decisions (don't silently reverse — confirm with the user first):
 
@@ -123,6 +123,33 @@ All endpoints are **implemented**. The controller is thin — it maps HTTP to
   Reads open. The matched key id is stamped on each tile (`Tile::apiKeyId`,
   internal audit only — not in the layout response). Custom subscriber, not
   Symfony Security (no users/roles/sessions).
+
+## Multiple screens
+
+The app supports any number of named screens, each with its own grid, tiles,
+queue and reservations (see `docs/MULTI-SCREEN.md`). Key points:
+
+- **Per-screen storage:** one JSON file per screen at `var/data/screens/<id>.json`
+  (same `tile.`/`queue.`/`reserve.` key shape) plus a registry
+  `var/data/screens.json` (`screen.<id>` → name + grid). API keys stay **global**.
+- **`App\Service\Screen\ScreenRegistry`** — screen metadata + grid; owns strict id
+  validation (`^[a-z0-9][a-z0-9-]{0,31}$`, the id is a filename → blocks traversal)
+  and the `app.limits.max_screens` cap. **`ScreenStoreFactory`** builds a
+  per-screen `SimpleDataService` (and lazily migrates a legacy `state.json` →
+  `screens/main.json`). **`App\Service\Layout\LayoutServiceFactory::forScreen()`**
+  builds a `LayoutService` over a screen's store + a `TilePlacer` sized to its grid.
+  `LayoutService` and the repositories are **unchanged** — only which file they sit on.
+- **Routes:** every tile action has a default + scoped pair — `/api/tiles` (defaults
+  `screen=main`) and `/api/screens/{screen}/tiles`, likewise for `…/layout`,
+  `…/position`, `…/reservation`, delete. Existing unscoped callers keep working as
+  `main`. Writing to an unknown screen **auto-creates** it (default grid); reads of
+  an unknown non-`main` screen → 404.
+- **Management:** `App\Controller\ScreenApiController` (`/api/screens`:
+  GET list, POST create/update, PATCH `/{screen}`, DELETE `/{screen}` — `main`
+  protected) and console `app:screen:list|create|delete`.
+- **Display:** `GET /` (main) and `GET /screens/{screen}`; the controller injects
+  the right `layoutUrl` into the template. **No frontend changes** — the JS derives
+  every write URL from `layoutUrl`.
 
 ## Display (the renderer)
 

@@ -5,7 +5,7 @@ screens**, each with its own grid, tiles, queue and reservations. See
 [`README.md`](README.md) for the overview, [`BACKEND.md`](BACKEND.md) for the
 current API, and [`FRONTEND.md`](FRONTEND.md) for the display.
 
-Status: **plan** · Last updated: 2026-06-18
+Status: **implemented** (steps 1–4; step 5 optional items pending) · Last updated: 2026-06-18
 
 ---
 
@@ -174,15 +174,16 @@ New management endpoints (writes, key-protected like the rest):
 
 ## 11. Sequencing (each step shippable)
 
-1. **Core** — `Screen`, `ScreenRegistry`, `ScreenStoreFactory`,
-   `LayoutServiceFactory`; rewire controllers to `main` via the factory; lazy
-   migration. *Behaviour identical to today.*
-2. **Scoped API** — `/api/screens/{screen}/…` routes + per-screen grid in `layout`;
-   auto-create + id validation + cap.
-3. **Scoped display** — `/screens/{screen}` + template wiring.
-4. **Management** — screens CRUD API + console commands.
-5. **Optional** — `/screens` index page; scope `GridPreviewController`; per-screen
-   API keys.
+1. **Core** ✅ — `Screen`, `ScreenRegistry`, `ScreenStoreFactory`,
+   `LayoutServiceFactory`; controllers resolve a screen via the factory; lazy
+   migration of `state.json` → `screens/main.json`.
+2. **Scoped API** ✅ — `/api/screens/{screen}/…` routes + per-screen grid in
+   `layout`; auto-create + id validation + cap.
+3. **Scoped display** ✅ — `/screens/{screen}` + template wiring (no JS changes).
+4. **Management** ✅ — screens CRUD API (`ScreenApiController`) + console commands
+   (`app:screen:list|create|delete`).
+5. **Optional** (pending) — `/screens` index page; scope `GridPreviewController`;
+   per-screen API keys.
 
 ## 12. Open items
 

@@ -17,6 +17,7 @@ parameters:
     app.limits.max_id_length: 128
     app.limits.max_tile_area: 9       # max W×H for a custom-sized tile (cells)
     app.limits.max_reservations: 30   # max number of pinned/reserved spots
+    app.limits.max_screens: 20        # max number of display screens
 
 services:
     # default configuration for services in *this* file
@@ -29,8 +30,9 @@ services:
     App\:
         resource: '../src/'
         exclude:
-            - '../src/Dto/'  # data transfer objects, not services
-            - '../src/Tile/' # value objects / enums, not services
+            - '../src/Dto/'    # data transfer objects, not services
+            - '../src/Tile/'   # value objects / enums, not services
+            - '../src/Screen/' # value objects, not services
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -8,13 +8,15 @@ use App\Dto\MoveRequest;
 use App\Dto\Tile;
 use App\Dto\TileRequest;
 use App\EventSubscriber\ApiKeySubscriber;
+use App\Screen\Screen;
 use App\Service\Display\TileRenderer;
-use App\Service\Layout\LayoutService;
+use App\Service\Layout\LayoutServiceFactory;
 use App\Service\Layout\TileLimitException;
 use App\Service\Layout\UnknownContentTypeException;
 use App\Service\Placement\NoSpaceException;
+use App\Service\Screen\ScreenException;
+use App\Service\Screen\ScreenRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,25 +24,37 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The write/read API for the layout. See docs/BACKEND.md §3.
+ * The write/read API for a screen's layout. Each action has two routes: an
+ * unscoped one ("/api/tiles", … — defaults to the "main" screen, so existing
+ * callers keep working) and a screen-scoped one ("/api/screens/{screen}/tiles", …).
+ * See docs/BACKEND.md §3 and docs/MULTI-SCREEN.md §5.
  */
 #[Route('/api', name: 'api_')]
 final class TileApiController extends AbstractController
 {
+    public function __construct(
+        private readonly ScreenRegistry $screens,
+        private readonly LayoutServiceFactory $layoutFactory,
+    ) {}
+
     /**
-     * Add or replace a tile (upsert by id). Accepts the {@see TileRequest}
-     * payload; the backend will resolve size → position and persist it.
+     * Add or replace a tile (upsert by id). Writing to an unknown screen creates
+     * it with the default grid.
      */
-    #[Route('/tiles', name: 'tiles_upsert', methods: ['POST'])]
+    #[Route('/tiles', name: 'tiles_upsert', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['POST'])]
+    #[Route('/screens/{screen}/tiles', name: 'screen_tiles_upsert', methods: ['POST'])]
     public function upsert(
+        string $screen,
         Request $httpRequest,
         #[MapRequestPayload] TileRequest $request,
-        LayoutService $layout,
     ): JsonResponse {
         $apiKeyId = $httpRequest->attributes->get(ApiKeySubscriber::ATTRIBUTE);
 
         try {
+            $layout = $this->layoutFactory->forScreen($this->screens->getOrCreate($screen));
             $result = $layout->upsert($request, time(), \is_string($apiKeyId) ? $apiKeyId : null);
+        } catch (ScreenException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
         } catch (UnknownContentTypeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (TileLimitException $e) {
@@ -73,14 +87,18 @@ final class TileApiController extends AbstractController
      * Move a placed tile to a new top-left cell. Tiles it lands on are evicted
      * to the queue. Returns the resolved position.
      */
-    #[Route('/tiles/{id}/position', name: 'tiles_move', methods: ['PATCH'])]
+    #[Route('/tiles/{id}/position', name: 'tiles_move', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['PATCH'])]
+    #[Route('/screens/{screen}/tiles/{id}/position', name: 'screen_tiles_move', methods: ['PATCH'])]
     public function move(
+        string $screen,
         string $id,
         #[MapRequestPayload] MoveRequest $move,
-        LayoutService $layout,
     ): JsonResponse {
         try {
+            $layout = $this->layoutFactory->forScreen($this->screens->getOrCreate($screen));
             $tile = $layout->move($id, $move->getX(), $move->getY(), time());
+        } catch (ScreenException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
         } catch (TileLimitException $e) {
             return $this->json(['error' => $e->getMessage()], $e->statusCode);
         }
@@ -106,11 +124,15 @@ final class TileApiController extends AbstractController
      * Reserve (pin) a placed tile's current spot for its id. The spot is held
      * even when the tile is gone, until released.
      */
-    #[Route('/tiles/{id}/reservation', name: 'tiles_reserve', methods: ['PUT'])]
-    public function reserve(string $id, LayoutService $layout): JsonResponse
+    #[Route('/tiles/{id}/reservation', name: 'tiles_reserve', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['PUT'])]
+    #[Route('/screens/{screen}/tiles/{id}/reservation', name: 'screen_tiles_reserve', methods: ['PUT'])]
+    public function reserve(string $screen, string $id): JsonResponse
     {
         try {
+            $layout = $this->layoutFactory->forScreen($this->screens->getOrCreate($screen));
             $position = $layout->reserve($id);
+        } catch (ScreenException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
         } catch (TileLimitException $e) {
             return $this->json(['error' => $e->getMessage()], $e->statusCode);
         }
@@ -129,9 +151,16 @@ final class TileApiController extends AbstractController
     /**
      * Release a reservation (un-pin). Idempotent.
      */
-    #[Route('/tiles/{id}/reservation', name: 'tiles_unreserve', methods: ['DELETE'])]
-    public function unreserve(string $id, LayoutService $layout): JsonResponse
+    #[Route('/tiles/{id}/reservation', name: 'tiles_unreserve', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['DELETE'])]
+    #[Route('/screens/{screen}/tiles/{id}/reservation', name: 'screen_tiles_unreserve', methods: ['DELETE'])]
+    public function unreserve(string $screen, string $id): JsonResponse
     {
+        try {
+            $layout = $this->layoutFactory->forScreen($this->screens->getOrCreate($screen));
+        } catch (ScreenException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
+        }
+
         $layout->unreserve($id, time());
 
         return $this->json(['id' => $id, 'reserved' => false]);
@@ -139,12 +168,18 @@ final class TileApiController extends AbstractController
 
     /**
      * Remove a tile by id (placed or queued). Idempotent. Frees space, so the
-     * queue is drained afterwards. A reservation for the id is kept (persistent);
-     * release it via DELETE /api/tiles/{id}/reservation.
+     * queue is drained afterwards. A reservation for the id is kept (persistent).
      */
-    #[Route('/tiles/{id}', name: 'tiles_delete', methods: ['DELETE'])]
-    public function delete(string $id, LayoutService $layout): JsonResponse
+    #[Route('/tiles/{id}', name: 'tiles_delete', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['DELETE'])]
+    #[Route('/screens/{screen}/tiles/{id}', name: 'screen_tiles_delete', methods: ['DELETE'])]
+    public function delete(string $screen, string $id): JsonResponse
     {
+        try {
+            $layout = $this->layoutFactory->forScreen($this->screens->getOrCreate($screen));
+        } catch (ScreenException $e) {
+            return $this->json(['error' => $e->getMessage()], $e->statusCode);
+        }
+
         $layout->delete($id, time());
 
         return $this->json(['deleted' => $id]);
@@ -152,23 +187,31 @@ final class TileApiController extends AbstractController
 
     /**
      * The single layout snapshot the display polls: grid + live tiles, with an
-     * ETag so unchanged polls return 304. Hashing the body means time-based
-     * expiry also flips the ETag. See docs/BACKEND.md §6.
+     * ETag so unchanged polls return 304. The "main" screen always exists; any
+     * other unknown screen is a 404. See docs/BACKEND.md §6.
      */
-    #[Route('/layout', name: 'layout', methods: ['GET'])]
+    #[Route('/layout', name: 'layout', defaults: ['screen' => ScreenRegistry::DEFAULT_ID], methods: ['GET'])]
+    #[Route('/screens/{screen}/layout', name: 'screen_layout', methods: ['GET'])]
     public function layout(
+        string $screen,
         Request $request,
-        LayoutService $layout,
         TileRenderer $renderer,
-        #[Autowire('%app.grid.cols%')] int $cols,
-        #[Autowire('%app.grid.rows%')] int $rows,
-        #[Autowire('%app.grid.gap%')] int $gap,
     ): JsonResponse {
+        $screenObj = $this->resolveReadableScreen($screen);
+        if ($screenObj === null) {
+            return $this->json(['error' => \sprintf('Unknown screen "%s".', $screen)], Response::HTTP_NOT_FOUND);
+        }
+
         $now = time();
+        $layout = $this->layoutFactory->forScreen($screenObj);
         $reservations = $layout->reservations(); // id => Position
 
         $payload = [
-            'grid' => ['cols' => $cols, 'rows' => $rows, 'gap' => $gap],
+            'grid' => [
+                'cols' => $screenObj->getCols(),
+                'rows' => $screenObj->getRows(),
+                'gap' => $screenObj->getGap(),
+            ],
             'tiles' => array_map(
                 static fn (Tile $tile): array => [
                     'id' => $tile->getId(),
@@ -201,13 +244,24 @@ final class TileApiController extends AbstractController
 
         // Live, per-state endpoint: it must NOT be stored by any (shared) cache,
         // or the display flickers between a cached snapshot and the live layout.
-        // The display still revalidates via If-None-Match against the ETag, so
-        // 304s keep working — we just forbid storing the body.
         $response->headers->set('Cache-Control', 'no-store');
 
         // Returns the response with a 304 status when If-None-Match matches.
         $response->isNotModified($request);
 
         return $response;
+    }
+
+    /**
+     * The screen to read a layout for: "main" is auto-created so it always
+     * renders; any other screen must already exist (else null → 404).
+     */
+    private function resolveReadableScreen(string $screen): ?Screen
+    {
+        if ($screen === ScreenRegistry::DEFAULT_ID) {
+            return $this->screens->getOrCreate($screen);
+        }
+
+        return $this->screens->get($screen);
     }
 }
