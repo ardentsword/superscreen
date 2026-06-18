@@ -34,6 +34,7 @@ The full design lives in [`docs/`](docs/) — read these before changing directi
 - `docs/FRONTEND.md` — the display page (vanilla, CSS Grid, keyed reconciliation).
 - `docs/OPERATIONS.md` — Pi provisioning, 3-tier deploy, monitoring.
 - `docs/PULL-SOURCED-TILES.md` — optional/future server-side polling.
+- `docs/MULTI-SCREEN.md` — plan for multiple independent screens (not yet built).
 
 Settled decisions (don't silently reverse — confirm with the user first):
 
