@@ -139,6 +139,14 @@ queue and reservations (see `docs/MULTI-SCREEN.md`). Key points:
   `screens/main.json`). **`App\Service\Layout\LayoutServiceFactory::forScreen()`**
   builds a `LayoutService` over a screen's store + a `TilePlacer` sized to its grid.
   `LayoutService` and the repositories are **unchanged** — only which file they sit on.
+- **Request wiring:** `App\EventSubscriber\ScreenContextSubscriber` (`kernel.request`,
+  prio 7, after the router) resolves the `{screen}` for tile/layout actions
+  (writes + `main` auto-create; other reads → 404) and stashes the `Screen` +
+  `LayoutService` in request attributes; `App\ArgumentResolver\ScreenValueResolver`
+  (high prio, beats the default service resolver) injects them into the action's
+  `LayoutService $layout` / `Screen $screen` args. Request-scoped, so console
+  commands (and `ScreenApiController`/`DisplayController`) use the factory/registry
+  directly instead.
 - **Routes:** every tile action has a default + scoped pair — `/api/tiles` (defaults
   `screen=main`) and `/api/screens/{screen}/tiles`, likewise for `…/layout`,
   `…/position`, `…/reservation`, delete. Existing unscoped callers keep working as

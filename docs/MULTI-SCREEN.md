@@ -82,10 +82,22 @@ screen-specific store.
 - **`ScreenStoreFactory`**: `forScreen(id): SimpleDataService` bound to
   `var/data/screens/<id>.json`, memoised per request. Replaces today's
   fixed-path autowired `SimpleDataService`; `main` resolves to `screens/main.json`.
-- **`LayoutServiceFactory`**: `forScreen(id): LayoutService` — builds the three
-  repositories over that screen's store and returns a `LayoutService`. Limits stay
-  global params; `TilePlacer` is stateless and shared. **`LayoutService` itself is
-  unchanged.**
+- **`LayoutServiceFactory`**: `forScreen(Screen): LayoutService` — builds the three
+  repositories over that screen's store and a `TilePlacer` sized to the screen's
+  grid. Limits stay global params. **`LayoutService` itself is unchanged.**
+
+**Request wiring.** Controllers don't call the factory themselves. A
+`kernel.request` subscriber (`ScreenContextSubscriber`, priority 7 — after the
+router) reads the `{screen}` route param for the tile/layout actions, applies the
+create-vs-404 policy (writes + `main` create; other reads 404), and stashes the
+resolved `Screen` + its `LayoutService` in the **request attributes**
+(`_screen` / `_layout`). A `ValueResolver` (`ScreenValueResolver`, high priority so
+it beats the default service resolver) then injects them into the action's
+`LayoutService $layout` / `Screen $screen` arguments. Request attributes are
+request-scoped, so nothing leaks between requests; the console commands keep using
+`ScreenRegistry`/`LayoutServiceFactory` directly (no request → the subscriber
+doesn't fire). `ScreenApiController` (management) and `DisplayController` resolve
+screens on their own and are not touched by the subscriber.
 
 ```mermaid
 flowchart LR

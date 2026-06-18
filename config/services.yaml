@@ -46,3 +46,9 @@ services:
     App\Service\ApiKey\ApiKeyRepository:
         arguments:
             $store: '@app.api_key_store'
+
+    # Inject the request's resolved per-screen LayoutService/Screen into controller
+    # args. High priority so it beats the default service resolver for LayoutService.
+    App\ArgumentResolver\ScreenValueResolver:
+        tags:
+            - { name: controller.argument_value_resolver, priority: 150 }
