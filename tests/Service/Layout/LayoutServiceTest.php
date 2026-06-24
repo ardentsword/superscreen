@@ -104,7 +104,7 @@ final class LayoutServiceTest extends TestCase
     }
 
     #[Test]
-    public function re_upsert_keeps_position_and_created_at_and_reports_updated(): void
+    public function re_upsert_keeps_position_restarts_lifetime_and_reports_updated(): void
     {
         $service = $this->service();
         $service->upsert($this->request('a', Size::Small, payload: ['text' => 'first']), self::NOW);
@@ -114,10 +114,30 @@ final class LayoutServiceTest extends TestCase
         $result = $service->upsert($this->request('a', Size::Small, payload: ['text' => 'second']), self::NOW + 500);
 
         self::assertFalse($result->created);
-        self::assertEquals(0, $result->tile->getPosition()->x);
+        self::assertEquals(0, $result->tile->getPosition()->x); // position preserved
         self::assertEquals(0, $result->tile->getPosition()->y);
-        self::assertSame(self::NOW, $result->tile->getCreatedAt()); // original createdAt preserved
+        // The lifetime restarts on re-post: createdAt tracks the new write so the
+        // window createdAt..expiresAt stays equal to the duration (the display's
+        // timeout pie depends on this).
+        self::assertSame(self::NOW + 500, $result->tile->getCreatedAt());
         self::assertSame('second', $this->tiles->find('a')->getContent()['text']);
+    }
+
+    #[Test]
+    public function re_upsert_keeps_lifetime_window_equal_to_duration(): void
+    {
+        $service = $this->service();
+        $service->upsert($this->request('a', Size::Small, duration: 120), self::NOW);
+
+        // Re-post the same tile later with the same duration (a keep-alive refresh).
+        $later = self::NOW + 80;
+        $result = $service->upsert($this->request('a', Size::Small, duration: 120), $later);
+
+        $tile = $result->tile;
+        self::assertSame($later, $tile->getCreatedAt());
+        self::assertSame($later + 120, $tile->getExpiresAt());
+        // The window the pie reads as "lifetime" must equal the duration, not grow.
+        self::assertSame(120, $tile->getExpiresAt() - $tile->getCreatedAt());
     }
 
     #[Test]

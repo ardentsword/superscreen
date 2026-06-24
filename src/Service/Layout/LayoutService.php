@@ -113,7 +113,11 @@ final readonly class LayoutService
             contentType: $contentType,
             content: $content,
             position: $position,
-            createdAt: $existing?->getCreatedAt() ?? $now,
+            // Each upsert restarts the lifetime (expiresAt below is recomputed as
+            // now + duration), so createdAt must restart too — otherwise the
+            // window createdAt..expiresAt grows on every re-post and the display's
+            // timeout pie (which reads it as the tile's lifetime) drifts low.
+            createdAt: $now,
             expiresAt: $duration === null ? null : $now + $duration,
             apiKeyId: $apiKeyId,
         );
